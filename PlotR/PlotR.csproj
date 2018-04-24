@@ -134,9 +134,17 @@
     <Compile Include="hamburger.xaml.cs">
       <DependentUpon>hamburger.xaml</DependentUpon>
     </Compile>
+    <Compile Include="HeatmapPlotView.xaml.cs">
+      <DependentUpon>HeatmapPlotView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="HeatmapPlotViewModel.cs" />
     <Compile Include="IShell.cs" />
     <Compile Include="ShellViewModel.cs" />
     <Page Include="hamburger.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Page Include="HeatmapPlotView.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
