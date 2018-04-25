@@ -15,8 +15,11 @@
                 <MenuItem Header="_Exit" />
             </MenuItem>
             <MenuItem Header="_Plot Type">
-                <CheckBox IsChecked="{Binding IsMagnitude}">Magnitude</CheckBox>
-                <CheckBox IsChecked="{Binding IsAmplitude}">Amplitude</CheckBox>
+
+                <MenuItem Header="_Magnitude" IsCheckable="True" IsChecked="{Binding IsMagnitude}" />
+                <MenuItem Header="_Amplitude" IsCheckable="True" IsChecked="{Binding IsAmplitude}" />
+                <Separator />
+                <MenuItem IsCheckable="True" IsChecked="{Binding IsBottomTrackLine}" Header="_Bottom Track Line" />
             </MenuItem>
         </Menu>
 
@@ -34,7 +37,7 @@
             <StatusBarItem HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Ensembles: " />
-                    <TextBlock Text="{Binding NumEnsembles}" Margin="0,0,5,0" />
+                    <TextBlock Text="{Binding TotalNumEnsembles}" Margin="0,0,5,0" />
                 </StackPanel>
 
             </StatusBarItem>

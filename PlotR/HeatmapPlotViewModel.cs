@@ -1,4 +1,34 @@
-﻿using Microsoft.Win32;
+﻿/*
+ * Copyright © 2011 
+ * Rowe Technology Inc.
+ * All rights reserved.
+ * http://www.rowetechinc.com
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification is NOT permitted.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+ * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS
+ * FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE 
+ * COPYRIGHT OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
+ * INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES INCLUDING,
+ * BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; 
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER 
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN 
+ * ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE 
+ * POSSIBILITY OF SUCH DAMAGE.
+ * 
+ * HISTORY
+ * -----------------------------------------------------------------
+ * Date            Initials    Version    Comments
+ * -----------------------------------------------------------------
+ * 04/25/2018      RC          1.0.0       Initial coding    
+ * 
+ */
+
+using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
 using OxyPlot;
 using OxyPlot.Axes;
@@ -16,6 +46,9 @@ using System.Threading.Tasks;
 
 namespace PlotR
 {
+    /// <summary>
+    /// Heat map plot.
+    /// </summary>
     class HeatmapPlotViewModel : Caliburn.Micro.PropertyChangedBase
     {
         #region Enum
@@ -47,20 +80,7 @@ namespace PlotR
 
         #region Properties
 
-        /// <summary>
-        /// File name of sqlite file.
-        /// </summary>
-        private string _FileName;
-
-        public string FileName
-        {
-            get { return _FileName; }
-            set
-            {
-                _FileName = value;
-                NotifyOfPropertyChange(() => FileName);
-            }
-        }
+        #region Plot
 
         /// <summary>
         /// The plot for the view model.  This will be the plot
@@ -81,25 +101,42 @@ namespace PlotR
             }
         }
 
-        /// <summary>
-        /// Number of ensembles.
-        /// </summary>
-        private int _NumEnsembles;
+        #endregion
+
+        #region Status
 
         /// <summary>
-        /// Number of ensembles.
+        /// File name of sqlite file.
         /// </summary>
-        public int NumEnsembles
+        private string _FileName;
+
+        public string FileName
         {
-            get { return _NumEnsembles; }
+            get { return _FileName; }
             set
             {
-                _NumEnsembles = value;
-                NotifyOfPropertyChange(() => NumEnsembles);
+                _FileName = value;
+                NotifyOfPropertyChange(() => FileName);
             }
         }
 
-        #region Status
+        /// <summary>
+        /// Number of ensembles.
+        /// </summary>
+        private int _TotalNumEnsembles;
+
+        /// <summary>
+        /// Number of ensembles.
+        /// </summary>
+        public int TotalNumEnsembles
+        {
+            get { return _TotalNumEnsembles; }
+            set
+            {
+                _TotalNumEnsembles = value;
+                NotifyOfPropertyChange(() => TotalNumEnsembles);
+            }
+        }
 
         /// <summary>
         /// Status Message.
@@ -159,14 +196,37 @@ namespace PlotR
 
         #region Plot Types
 
+        /// <summary>
+        /// List of all the plot types.
+        /// </summary>
+        public List<PlotDataType> PlotTypeList { get; set; }
 
         /// <summary>
-        /// Magnitude plot selected.
+        /// Selected Plot type.
+        /// </summary>
+        private PlotDataType _SelectedPlotType;
+        /// <summary>
+        /// Selected Plot type.
+        /// </summary>
+        public PlotDataType SelectedPlotType
+        {
+            get { return _SelectedPlotType; }
+            set
+            {
+                _SelectedPlotType = value;
+                NotifyOfPropertyChange(() => SelectedPlotType);
+
+                // Replot data
+                ReplotData(_SelectedPlotType);
+            }
+        }
+
+        /// <summary>
+        /// Magnitude Plot Selected.
         /// </summary>
         private bool _IsMagnitude;
-
         /// <summary>
-        /// Magnitude plot selected.
+        /// Magnitude Plot Selected.
         /// </summary>
         public bool IsMagnitude
         {
@@ -181,17 +241,15 @@ namespace PlotR
                     // Replot data
                     ReplotData(PlotDataType.Magnitude);
                 }
-
             }
         }
 
         /// <summary>
-        /// Amplitude plot selected.
+        /// Amplitude Plot Selected.
         /// </summary>
         private bool _IsAmplitude;
-
         /// <summary>
-        /// Amplitude plot selected.
+        /// Amplitude Plot Selected.
         /// </summary>
         public bool IsAmplitude
         {
@@ -205,6 +263,33 @@ namespace PlotR
                 {
                     // Replot data
                     ReplotData(PlotDataType.Amplitude);
+                }
+            }
+        }
+
+        #endregion
+
+        #region Bottom Track Line
+
+        /// <summary>
+        /// Bottom Track Line selection.
+        /// </summary>
+        private bool _IsBottomTrackLine;
+        /// <summary>
+        /// Bottom Track Line selection.
+        /// </summary>
+        public bool IsBottomTrackLine
+        {
+            get { return _IsBottomTrackLine; }
+            set
+            {
+                _IsBottomTrackLine = value;
+                NotifyOfPropertyChange(() => IsBottomTrackLine);
+
+                if (value)
+                {
+                    // Replot data
+                    //ReplotData(PlotDataType.Amplitude);
                 }
             }
         }
@@ -231,8 +316,15 @@ namespace PlotR
             FileName = "Open a DB file...";
             Plot = CreatePlot();
 
+            // Selected Plot Type
+            //PlotTypeList = Enum.GetValues(typeof(PlotDataType)).Cast<PlotDataType>().ToList();
+            SelectedPlotType = PlotDataType.Magnitude;
             IsMagnitude = true;
 
+            // Bottom Track Line
+            IsBottomTrackLine = true;
+
+            // Status
             StatusMsg = "";
             StatusProgress = 0;
             StatusProgressMax = 100;
@@ -256,7 +348,7 @@ namespace PlotR
                 FileName = openFileDialog.FileName;
 
                 // Load the project
-                LoadProject(FileName);
+                LoadProject(FileName, _SelectedPlotType);
             }
         }
 
@@ -267,8 +359,9 @@ namespace PlotR
         /// <summary>
         /// Load the project and get all the data.
         /// </summary>
-        /// <param name="fileName"></param>
-        private async void LoadProject(string fileName)
+        /// <param name="fileName">File path of the project.</param>
+        /// <param name="selectedPlotType">Selected Plot type.</param>
+        private async void LoadProject(string fileName, PlotDataType selectedPlotType)
         {
             // Data to get from the project
             double[,] data = null;
@@ -284,20 +377,11 @@ namespace PlotR
                     // Open the connection:
                     sqlite_conn.Open();
 
-                    // Get number of ensembles
-                    NumEnsembles = GetNumEnsembles(sqlite_conn);
-
-                    // Limit the size of data to display
-                    if (NumEnsembles > MAX_ENS)
-                    {
-                        NumEnsembles = MAX_ENS;
-                    }
-
-                    StatusProgressMax = NumEnsembles;
-                    StatusProgress = 0;
+                    // Get total number of ensembles in the project
+                    TotalNumEnsembles = GetNumEnsembles(sqlite_conn);
 
                     // Get the magnitude data
-                    await Task.Run(() => data = GetData(sqlite_conn, NumEnsembles));
+                    await Task.Run(() => data = GetData(sqlite_conn, TotalNumEnsembles, selectedPlotType));
 
                     // Close connection
                     sqlite_conn.Close();
@@ -319,18 +403,19 @@ namespace PlotR
             {
                 // Update status
                 StatusMsg = "Drawing Plot";
-                //StatusProgressMax = data.Length;
-                //StatusProgress = 0;
 
                 // Plot the data from the project
                 await Task.Run(() => PlotData(data));
-                //PlotData(data);
             }
             else
             {
                 StatusMsg = "No data to plot";
             }
         }
+
+        #endregion
+
+        #region Number of Ensembles
 
         /// <summary>
         /// Get the number of ensembles in the project database.
@@ -389,6 +474,8 @@ namespace PlotR
             return result;
         }
 
+        #endregion
+
         #region Get Data
 
         /// <summary>
@@ -396,41 +483,39 @@ namespace PlotR
         /// </summary>
         /// <param name="ePlotDataType">Selected data type.</param>
         /// <param name="cnn">SQLite connection.</param>
-        /// <param name="numEnsembles">Max number of ensembles to display.</param>
+        /// <param name="maxNumEnsembles">Max number of ensembles to display.</param>
+        /// <param name="selectedPlotType">Selected Plot type.</param>
         /// <returns>The selected for each ensemble and bin.</returns>
-        private double[,] GetData(SQLiteConnection cnn, int numEnsembles)
+        private double[,] GetData(SQLiteConnection cnn, int maxNumEnsembles, PlotDataType selectedPlotType)
         {
-            if (_IsMagnitude)
-            {
-                string query = string.Format("SELECT ID,EnsembleNum,DateTime,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "EarthVelocityDS", "EarthVelocityDS");
-                return GetDataFromDb(cnn, numEnsembles, query);
-            }
-            else if (_IsAmplitude)
-            {
-                string query = string.Format("SELECT ID,EnsembleNum,DateTime,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "AmplitudeDS", "AmplitudeDS");
-                return GetDataFromDb(cnn, numEnsembles, query);
-            }
-            else
-                return null;
-        }
+            StatusProgressMax = TotalNumEnsembles;
+            StatusProgress = 0;
 
-        /// <summary>
-        /// Select which parser to use based off the selected plot.
-        /// </summary>
-        /// <param name="reader">Reader holds a single row (ensemble).</param>
-        /// <returns>Data selected for the row.</returns>
-        private double[] ParseData(DbDataReader reader)
-        {
-            if (_IsMagnitude)
+            switch (selectedPlotType)
             {
-                return ParseMagData(reader);
+                case PlotDataType.Magnitude:
+                { 
+                    // Get the number of ensembles
+                    int numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM {0} WHERE {1} IS NOT NULL;;", "tblEnsemble", "EarthVelocityDS"));
+                    StatusProgressMax = numEnsembles;
+
+                    // Get data
+                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "EarthVelocityDS", "EarthVelocityDS");
+                    return GetDataFromDb(cnn, numEnsembles, query, selectedPlotType);
+                }
+                case PlotDataType.Amplitude:
+                {
+                    // Get the number of ensembles
+                    int numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM {0} WHERE {1} IS NOT NULL;;", "tblEnsemble", "AmplitudeDS"));
+                    StatusProgressMax = numEnsembles;
+                    
+                    // Get data
+                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "AmplitudeDS", "AmplitudeDS");
+                    return GetDataFromDb(cnn, numEnsembles, query, selectedPlotType);
+                }
+                default:
+                    return null;
             }
-            else if (_IsAmplitude)
-            {
-                return ParseAmpData(reader);
-            }
-            else
-                return null;
         }
 
         /// <summary>
@@ -439,8 +524,9 @@ namespace PlotR
         /// <param name="cnn">Database connection.</param>
         /// <param name="numEnsembles">Number of ensembles.</param>
         /// <param name="query">Query string to retreive the data.</param>
+        /// <param name="selectedPlotType">Selected Plot Type.</param>
         /// <returns>Magnitude data in (NumEns X NumBin) format.</returns>
-        private double[,] GetDataFromDb(SQLiteConnection cnn, int numEnsembles, string query)
+        private double[,] GetDataFromDb(SQLiteConnection cnn, int numEnsembles, string query, PlotDataType selectedPlotType)
         {
             // Init list
             double[,] result = null;
@@ -451,9 +537,6 @@ namespace PlotR
             {
                 return null;
             }
-
-            // Get the number of ensembles
-            numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM {0} WHERE {1} IS NOT NULL;", "tblEnsemble", "EarthVelocityDS"));
 
             using (DbCommand cmd = cnn.CreateCommand())
             {
@@ -482,7 +565,8 @@ namespace PlotR
                     }
 
                     // Parse the data from the db
-                    double[] data = ParseData(reader);
+                    // This will be select which type of data to plot
+                    double[] data = ParseData(reader, selectedPlotType);
 
                     // Verify we have data
                     if (data != null)
@@ -513,6 +597,25 @@ namespace PlotR
         #endregion
 
         #region Parse Data
+
+        /// <summary>
+        /// Select which parser to use based off the selected plot.
+        /// </summary>
+        /// <param name="reader">Reader holds a single row (ensemble).</param>
+        /// <param name="selectedPlotType">Selected Plot Type.</param>
+        /// <returns>Data selected for the row.</returns>
+        private double[] ParseData(DbDataReader reader, PlotDataType selectedPlotType)
+        {
+            switch (selectedPlotType)
+            {
+                case PlotDataType.Magnitude:
+                    return ParseMagData(reader);
+                case PlotDataType.Amplitude:
+                    return ParseAmpData(reader);
+                default:
+                    return null;
+            }
+        }
 
         /// <summary>
         /// Process the row from the DB.  A row represents an ensemble.
@@ -617,8 +720,6 @@ namespace PlotR
 
         #endregion
 
-        #endregion
-
         #region Create Plot
 
         /// <summary>
@@ -652,7 +753,6 @@ namespace PlotR
 
             // Right axis in Meters
             temp.Axes.Add(CreatePlotAxis(AxisPosition.Left, "meters", 2));
-
 
             return temp;
         }
@@ -748,8 +848,10 @@ namespace PlotR
 
             // After the line series have been updated
             // Refresh the plot with the latest data.
-            StatusMsg = "Draw Plot";
+            StatusMsg = "Drawing Plot";
             Plot.InvalidatePlot(true);
+
+            StatusMsg = "Drawing complete.  Total Ensembles: " + data.GetLength(0);
         }
 
 
@@ -780,7 +882,7 @@ namespace PlotR
             // Replot the data
             if (!string.IsNullOrEmpty(FileName))
             {
-                LoadProject(FileName);
+                LoadProject(FileName, eplotDataType);
             }
 
         }
