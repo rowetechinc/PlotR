@@ -20,6 +20,8 @@
                 <MenuItem Header="_Amplitude" IsCheckable="True" IsChecked="{Binding IsAmplitude}" />
                 <Separator />
                 <MenuItem IsCheckable="True" IsChecked="{Binding IsBottomTrackLine}" Header="_Bottom Track Line" />
+                <Separator />
+                <MenuItem IsCheckable="True" IsChecked="{Binding IsMarkBadBelowBottom}" Header="_Mark Bad Below Bottom" />
             </MenuItem>
         </Menu>
 

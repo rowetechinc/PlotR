@@ -64,6 +64,38 @@ namespace PlotR
 
         #endregion
 
+        #region Class
+
+        /// <summary>
+        /// Class to hold the plot data.
+        /// </summary>
+        private class PlotData
+        {
+            /// <summary>
+            /// Profile data to plot.
+            /// </summary>
+            public double[,] ProfileData { get; set; }
+
+            /// <summary>
+            /// Bottom Track data to plot.
+            /// </summary>
+            public AreaSeries BottomTrackData { get; set; }
+
+            /// <summary>
+            /// Initialize the object.
+            /// </summary>
+            public PlotData()
+            {
+                // Store the Profile data
+                ProfileData = null;
+
+                // Create a Bottom Track series
+                BottomTrackData = null;
+            }
+        }
+
+        #endregion
+
         #region Variables
 
         /// <summary>
@@ -75,6 +107,18 @@ namespace PlotR
         /// Bad velocity value.
         /// </summary>
         private double BAD_VELOCITY = 88.888;
+
+        /// <summary>
+        /// Bad Bottom Value.
+        /// </summary>
+        private int BAD_BOTTOM_BIN = 0;
+
+        /// <summary>
+        /// Store the last good Bottom Track Range Bin value.
+        /// This is used as a backup value for Bottom Track Range Bin value if
+        /// the current bottom track is bad.
+        /// </summary>
+        private int _prevGoodBottomBin;
 
         #endregion
 
@@ -286,11 +330,38 @@ namespace PlotR
                 _IsBottomTrackLine = value;
                 NotifyOfPropertyChange(() => IsBottomTrackLine);
 
-                if (value)
-                {
+                //if (value)
+                //{
                     // Replot data
-                    //ReplotData(PlotDataType.Amplitude);
-                }
+                    ReplotData(SelectedPlotType);
+                //}
+            }
+        }
+
+        #endregion
+
+        #region Mark Bad Below Bottom
+
+        /// <summary>
+        /// Select to Mark Bad Below Bottom.
+        /// </summary>
+        private bool _IsMarkBadBelowBottom;
+        /// <summary>
+        /// Select to Mark Bad Below Bottom.
+        /// </summary>
+        public bool IsMarkBadBelowBottom
+        {
+            get { return _IsMarkBadBelowBottom; }
+            set
+            {
+                _IsMarkBadBelowBottom = value;
+                NotifyOfPropertyChange(() => IsMarkBadBelowBottom);
+
+                //if (value)
+                //{
+                    // Replot data
+                    ReplotData(SelectedPlotType);
+                //}
             }
         }
 
@@ -323,6 +394,10 @@ namespace PlotR
 
             // Bottom Track Line
             IsBottomTrackLine = true;
+
+            // Mark Bad Below Bottom
+            IsMarkBadBelowBottom = true;
+            _prevGoodBottomBin = BAD_BOTTOM_BIN;
 
             // Status
             StatusMsg = "";
@@ -364,7 +439,7 @@ namespace PlotR
         private async void LoadProject(string fileName, PlotDataType selectedPlotType)
         {
             // Data to get from the project
-            double[,] data = null;
+            PlotData data = null;
 
             // Create data Source string
             string dataSource = string.Format("Data Source={0};Version=3;", fileName);
@@ -404,8 +479,11 @@ namespace PlotR
                 // Update status
                 StatusMsg = "Drawing Plot";
 
-                // Plot the data from the project
-                await Task.Run(() => PlotData(data));
+                // Plot the Profile data from the project
+                await Task.Run(() => PlotProfileData(data.ProfileData));
+
+                // Plot the Bottom Track data from the project
+                await Task.Run(() => PlotBtSeries(data.BottomTrackData));
             }
             else
             {
@@ -486,7 +564,7 @@ namespace PlotR
         /// <param name="maxNumEnsembles">Max number of ensembles to display.</param>
         /// <param name="selectedPlotType">Selected Plot type.</param>
         /// <returns>The selected for each ensemble and bin.</returns>
-        private double[,] GetData(SQLiteConnection cnn, int maxNumEnsembles, PlotDataType selectedPlotType)
+        private PlotData GetData(SQLiteConnection cnn, int maxNumEnsembles, PlotDataType selectedPlotType)
         {
             StatusProgressMax = TotalNumEnsembles;
             StatusProgress = 0;
@@ -500,7 +578,7 @@ namespace PlotR
                     StatusProgressMax = numEnsembles;
 
                     // Get data
-                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "EarthVelocityDS", "EarthVelocityDS");
+                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "EarthVelocityDS", "EarthVelocityDS");
                     return GetDataFromDb(cnn, numEnsembles, query, selectedPlotType);
                 }
                 case PlotDataType.Amplitude:
@@ -510,7 +588,7 @@ namespace PlotR
                     StatusProgressMax = numEnsembles;
                     
                     // Get data
-                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "AmplitudeDS", "AmplitudeDS");
+                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "AmplitudeDS", "AmplitudeDS");
                     return GetDataFromDb(cnn, numEnsembles, query, selectedPlotType);
                 }
                 default:
@@ -526,10 +604,11 @@ namespace PlotR
         /// <param name="query">Query string to retreive the data.</param>
         /// <param name="selectedPlotType">Selected Plot Type.</param>
         /// <returns>Magnitude data in (NumEns X NumBin) format.</returns>
-        private double[,] GetDataFromDb(SQLiteConnection cnn, int numEnsembles, string query, PlotDataType selectedPlotType)
+        private PlotData GetDataFromDb(SQLiteConnection cnn, int numEnsembles, string query, PlotDataType selectedPlotType)
         {
             // Init list
-            double[,] result = null;
+            PlotData result = new PlotData();
+            AreaSeries btSeries = CreateBtSeries();
             int ensIndex = 0;
 
             // Ensure a connection was made
@@ -564,6 +643,13 @@ namespace PlotR
                         break;
                     }
 
+                    // Parse the Bottom Track line if enabled
+                    if (IsBottomTrackLine)
+                    {
+                        // Get Bottom Track Line Data
+                        ParseBtData(ref btSeries, reader, ensIndex);
+                    }
+
                     // Parse the data from the db
                     // This will be select which type of data to plot
                     double[] data = ParseData(reader, selectedPlotType);
@@ -572,24 +658,26 @@ namespace PlotR
                     if (data != null)
                     {
                         // If the array has not be created, created now
-                        if (result == null)
+                        if (result.ProfileData == null)
                         {
                             // Create the array if this is the first entry
                             // NumEnsembles X NumBins
-                            result = new double[numEnsembles, data.Length];
+                            result.ProfileData = new double[numEnsembles, data.Length];
                         }
 
                         // Add the data to the array
                         for (int x = 0; x < data.Length; x++)
                         {
-                            result[ensIndex, x] = data[x];
+                            result.ProfileData[ensIndex, x] = data[x];
                         }
 
                         ensIndex++;
                     }
-
                 }
             }
+
+            // Set the Bottom Track series
+            result.BottomTrackData = btSeries;
 
             return result;
         }
@@ -626,6 +714,13 @@ namespace PlotR
         {
             try
             {
+                // Get Range Bin if marking bad below bottom
+                int rangeBin = BAD_BOTTOM_BIN;
+                if (IsMarkBadBelowBottom)
+                {
+                    rangeBin = GetRangeBin(reader);
+                }
+
                 // Get the earth data as a JSON string
                 string jsonEarth = reader["EarthVelocityDS"].ToString();
 
@@ -640,10 +735,19 @@ namespace PlotR
 
                     //Debug.WriteLine(ensEarth["VelocityVectors"][0]["Magnitude"]);
                     double[] data = new double[numBins];
-                    for (int x = 0; x < numBins; x++)
+                    for (int bin = 0; bin < numBins; bin++)
                     {
-                        // Get the velocity vector magntidue from the JSON object and add it to the array
-                        data[x] = ensEarth["VelocityVectors"][x]["Magnitude"].ToObject<double>();
+                        // Check if Mark bad below bottom
+                        if (_IsMarkBadBelowBottom && rangeBin > BAD_BOTTOM_BIN && bin >= rangeBin)
+                        {
+                            // Mark Bad Below Bottom
+                            data[bin] = BAD_VELOCITY;
+                        }
+                        else
+                        {
+                            // Get the velocity vector magntidue from the JSON object and add it to the array
+                            data[bin] = ensEarth["VelocityVectors"][bin]["Magnitude"].ToObject<double>();
+                        }
                     }
 
                     return data;
@@ -667,6 +771,13 @@ namespace PlotR
         {
             try
             {
+                // Get Range Bin if marking bad below bottom
+                int rangeBin = BAD_BOTTOM_BIN;
+                if(IsMarkBadBelowBottom)
+                {
+                    rangeBin = GetRangeBin(reader);
+                }
+
                 // Get the data as a JSON string
                 string jsonData = reader["AmplitudeDS"].ToString();
 
@@ -695,8 +806,14 @@ namespace PlotR
                             }
                         }
 
+                        // Check if Mark bad below bottom
+                        if (_IsMarkBadBelowBottom && rangeBin > BAD_BOTTOM_BIN && bin >= rangeBin)
+                        {
+                            // Mark bad below bottom
+                            data[bin] = BAD_VELOCITY;
+                        }
                         // Add average data to the array
-                        if (avgCnt > 0)
+                        else if (avgCnt > 0)
                         {
                             data[bin] = avg/avgCnt;
                         }
@@ -814,7 +931,7 @@ namespace PlotR
         /// Plot the given data.
         /// </summary>
         /// <param name="data">Data to plot by creating a series.</param>
-        private void PlotData(double[,] data)
+        private void PlotProfileData(double[,] data)
         {
             // Update the plots in the dispatcher thread
             try
@@ -885,6 +1002,199 @@ namespace PlotR
                 LoadProject(FileName, eplotDataType);
             }
 
+        }
+
+        #endregion
+
+        #region Bottom Track Line
+
+        /// <summary>
+        /// Add Bottom Track line series.  This will be a line to mark the bottom.
+        /// </summary>
+        public void PlotBtSeries(AreaSeries series)
+        {
+            // Lock the plot for an update
+            lock (Plot.SyncRoot)
+            {
+                Plot.Series.Add(series);
+            }
+
+            // Then refresh the plot
+            Plot.InvalidatePlot(true);
+        }
+
+        /// <summary>
+        /// Create the Bottom Track series.
+        /// </summary>
+        /// <returns>Series for Bottom Track line.</returns>
+        private AreaSeries CreateBtSeries()
+        {
+            // Add the series to the list
+            // Create a series
+            AreaSeries series = new AreaSeries()
+            {
+                Color = OxyColors.Red,
+                Color2 = OxyColors.Transparent,
+                Fill = OxyColor.FromAColor(240, OxyColors.DarkGray),
+            };
+            series.Tag = "Bottom Track";
+
+            return series;
+        }
+
+        /// <summary>
+        /// Update the Bottom Track series with the latest depth.
+        /// </summary>
+        /// <param name="btSeries">Bottom Track series to update.</param>
+        /// <param name="reader">Database reader.</param>
+        /// <param name="ensIndex">Index in the plot based off the reader.</param>
+        private void ParseBtData(ref AreaSeries btSeries, DbDataReader reader, int ensIndex)
+        {
+            try
+            {
+                // Convert to a JSON object
+                string jsonEnsemble = reader["EnsembleDS"].ToString();
+                JObject ensData = JObject.Parse(jsonEnsemble);
+                int numBins = ensData["NumBins"].ToObject<int>();
+
+                // Update the bottom track line series
+                int rangeBin = GetRangeBin(reader);
+
+                // Only plot the range if it is found
+                if (rangeBin > 0)
+                {
+                    // Create a new data point for the bottom track line
+                    // This will be the (ensemble count, range bin)
+                    btSeries.Points.Add(new DataPoint(ensIndex, rangeBin));
+
+                    // Add the second point for the shaded area
+                    if (rangeBin < numBins)
+                    {
+                        // Less then the number of bins, so go to the end of the number of bins
+                        btSeries.Points2.Add(new DataPoint(ensIndex, numBins));
+                    }
+                    else
+                    {
+                        // This is the deepest point
+                        btSeries.Points2.Add(new DataPoint(ensIndex, rangeBin));
+                    }
+                }
+
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Error parsing Bottom Track data", e);
+                return;
+            }
+        }
+
+
+
+        #endregion
+
+        #region Range Bin
+
+        /// <summary>
+        /// Get the bin that represent the depth of the water.
+        /// </summary>
+        /// <param name="ranges">Bottom Track ranges.</param>
+        /// <param name="binSize">Bin Size.</param>
+        /// <param name="firstBin">First bin position (Blank)</param>
+        /// <returns>Bin of the water depth.</returns>
+        private int GetRangeBin(DbDataReader reader)
+        {
+            try
+            {
+                // Get the data as a JSON string
+                string jsonEnsemble = reader["EnsembleDS"].ToString();
+                string jsonBT = reader["BottomTrackDS"].ToString();
+                string jsonAncillary = reader["AncillaryDS"].ToString();
+
+                if (string.IsNullOrEmpty(jsonEnsemble) || string.IsNullOrEmpty(jsonBT) || string.IsNullOrEmpty(jsonAncillary))
+                {
+                    // Check if we have a backup value
+                    if (_prevGoodBottomBin != BAD_BOTTOM_BIN)
+                    {
+                        return _prevGoodBottomBin;
+                    }
+                    else
+                    {
+                        // No range found
+                        return 0;
+                    }
+                }
+
+                // Convert to JSON objects
+                JObject ensData = JObject.Parse(jsonEnsemble);
+                JObject ancData = JObject.Parse(jsonAncillary);
+                JObject btData = JObject.Parse(jsonBT);
+
+                // Get Bin Size and First bin
+                double binSize = ancData["BinSize"].ToObject<double>();
+                double firstBin = ancData["FirstBinRange"].ToObject<double>();
+                int numBins = ensData["NumBins"].ToObject<int>();
+
+                // Get Bottom Track Ranges
+                double[] ranges = btData["Range"].ToObject<double[]>();
+
+                int bin = 0;
+
+                // Get the average range
+                double avg = 0.0;
+                int avgCt = 0;
+                foreach (var range in ranges)
+                {
+                    if (range > 0.0)
+                    {
+                        avg += range;
+                        avgCt++;
+                    }
+                }
+
+                // Verify we found good range
+                if (avgCt > 0)
+                {
+                    // Calculate the average Range
+                    double avgRange = avg / avgCt;
+
+                    // Remove the Blank distance
+                    avgRange -= firstBin;
+
+                    if (avgRange > 0.0)
+                    {
+                        // Divide by the bin size and round to int
+                        double binDepth = avgRange / binSize;
+
+                        // Set the Bottom Bin
+                        int bottomBin = (int)Math.Round(binDepth);
+
+                        // Store as a backup value
+                        _prevGoodBottomBin = bottomBin;
+
+                        return bottomBin;
+                    }
+                }
+                else
+                {
+                    // Check if we have a backup value
+                    if (_prevGoodBottomBin != BAD_BOTTOM_BIN)
+                    {
+                        return _prevGoodBottomBin;
+                    }
+                    else
+                    {
+                        // No range found and no backup
+                        return 0;
+                    }
+                }
+
+                return bin;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Error getting the Range bin.", e);
+                return 0;
+            }
         }
 
         #endregion
