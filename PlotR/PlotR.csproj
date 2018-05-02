@@ -139,6 +139,11 @@
     </Compile>
     <Compile Include="HeatmapPlotViewModel.cs" />
     <Compile Include="IShell.cs" />
+    <Compile Include="MenuItemRti.cs" />
+    <Compile Include="PlotrView.xaml.cs">
+      <DependentUpon>PlotrView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="PlotrViewModel.cs" />
     <Compile Include="ShellViewModel.cs" />
     <Page Include="hamburger.xaml">
       <SubType>Designer</SubType>
@@ -160,6 +165,10 @@
       <DependentUpon>MainWindow.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Page Include="PlotrView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="ShellView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>

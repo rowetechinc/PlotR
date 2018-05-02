@@ -1,0 +1,58 @@
+﻿<UserControl x:Class="PlotR.PlotrView"
+             xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:cal="http://www.caliburnproject.org"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:local="clr-namespace:PlotR"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300">
+    <DockPanel>
+        <Menu DockPanel.Dock="Top">
+            <MenuItem Header="_File">
+                <MenuItem Header="_Open" Command="{Binding OpenCommand}" ToolTip="Select a project to display." />
+                <Separator />
+                <MenuItem Header="_Exit" />
+            </MenuItem>
+        </Menu>
+
+        <!--Slider-->
+        <Grid DockPanel.Dock="Bottom" HorizontalAlignment="Stretch" Background="DarkGray">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <Controls:RangeSlider Grid.Column="0" HorizontalAlignment="Stretch" Margin="5"
+                              TickPlacement="BottomRight"
+                              LowerValue="{Binding CurrentMinValue, Mode=TwoWay}" 
+                              UpperValue="{Binding CurrentMaxValue, Mode=TwoWay}"
+                              Minimum="0"
+                              Maximum="{Binding TotalEnsembles}"
+                              cal:Message.Attach="[Event CentralThumbDragCompleted] = [Action UpdateEnsembleSelections]"
+                              TickFrequency="10"
+                              AutoToolTipPlacement="TopLeft" AutoToolTipPrecision="0" MoveWholeRange="True"
+                              IsSnapToTickEnabled="True" IsMoveToPointEnabled="True" ExtendedMode="True"
+                              ToolTip="Select the ensembles to display."
+                              />
+            <Controls:NumericUpDown Grid.Column="1" Value="{Binding CurrentMinValue, Mode=TwoWay}" Minimum="1" Margin="5" ToolTip="Minimum ensemble to display."  />
+            <Controls:NumericUpDown Grid.Column="2" Value="{Binding CurrentMaxValue, Mode=TwoWay}" Minimum="1" Margin="2.5,5" ToolTip="Maximum ensemble to display." />
+            <Button Grid.Column="3" cal:Message.Attach="[Event Click] = [Action UpdateEnsembleSelections]" Margin="2.5,5"  >
+                <iconPacks:PackIconModern Kind="Refresh" />
+            </Button>
+            <Button Grid.Column="4" cal:Message.Attach="[Event Click] = [Action DisplayAll]" Margin="2.5,5"  >
+                <iconPacks:PackIconModern Kind="ArrowExpand" />
+            </Button>
+            <TextBlock Grid.Column="5" Text="{Binding TotalEnsembles}" Margin="2.5,5,5,5" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="Total number of ensembles in the project." />
+        </Grid>
+
+
+        <ContentControl x:Name="ActiveItem" />
+
+    </DockPanel>
+</UserControl>

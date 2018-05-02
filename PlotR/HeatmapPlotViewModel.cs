@@ -36,9 +36,11 @@ using OxyPlot.Series;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data.Common;
 using System.Data.SQLite;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Reactive;
 using System.Text;
@@ -60,6 +62,22 @@ namespace PlotR
         {
             Magnitude,
             Amplitude,
+        }
+
+        /// <summary>
+        /// Limit and offset value.
+        /// </summary>
+        public struct LimitOffset
+        {
+            /// <summary>
+            /// Limit is the number of ensembles.
+            /// </summary>
+            public int Limit { get; set; }
+
+            /// <summary>
+            /// Offset is the start location.
+            /// </summary>
+            public int Offset { get; set; }
         }
 
         #endregion
@@ -101,12 +119,17 @@ namespace PlotR
         /// <summary>
         /// Max Ensembles to display.
         /// </summary>
-        private int MAX_ENS = 510000;
+        ///private int MAX_ENS = 510000;
 
         /// <summary>
         /// Bad velocity value.
         /// </summary>
         private double BAD_VELOCITY = 88.888;
+
+        /// <summary>
+        /// Bad amplitude.
+        /// </summary>
+        private double BAD_AMPLITUDE = 0.0;
 
         /// <summary>
         /// Bad Bottom Value.
@@ -119,6 +142,12 @@ namespace PlotR
         /// the current bottom track is bad.
         /// </summary>
         private int _prevGoodBottomBin;
+
+        /// <summary>
+        /// If this is the first time loading the project, then set the max index to the total
+        /// number of ensembles.  This flag is reset anytime a new project is loaded.
+        /// </summary>
+        private bool _firstLoad;
 
         #endregion
 
@@ -241,11 +270,6 @@ namespace PlotR
         #region Plot Types
 
         /// <summary>
-        /// List of all the plot types.
-        /// </summary>
-        public List<PlotDataType> PlotTypeList { get; set; }
-
-        /// <summary>
         /// Selected Plot type.
         /// </summary>
         private PlotDataType _SelectedPlotType;
@@ -329,12 +353,9 @@ namespace PlotR
             {
                 _IsBottomTrackLine = value;
                 NotifyOfPropertyChange(() => IsBottomTrackLine);
-
-                //if (value)
-                //{
-                    // Replot data
-                    ReplotData(SelectedPlotType);
-                //}
+                
+                // Replot data
+                ReplotData(SelectedPlotType);
             }
         }
 
@@ -357,13 +378,24 @@ namespace PlotR
                 _IsMarkBadBelowBottom = value;
                 NotifyOfPropertyChange(() => IsMarkBadBelowBottom);
 
-                //if (value)
-                //{
-                    // Replot data
-                    ReplotData(SelectedPlotType);
-                //}
+                // Replot data
+                ReplotData(SelectedPlotType);
             }
         }
+
+        #endregion
+
+        #region File and Subsystem List
+
+        /// <summary>
+        /// List of all the files in the project.
+        /// </summary>
+        public BindingList<MenuItemRti> ProjectFileList { get; set; }
+
+        /// <summary>
+        /// List of all the Subsystem configurations.
+        /// </summary>
+        public BindingList<MenuItemRti> SubsystemConfigList { get; set; }
 
         #endregion
 
@@ -384,8 +416,15 @@ namespace PlotR
         public HeatmapPlotViewModel()
         {
             // Initialize
-            FileName = "Open a DB file...";
+            FileName = "";
             Plot = CreatePlot();
+
+            // List of project files and subsystem
+            ProjectFileList = new BindingList<MenuItemRti>();
+            SubsystemConfigList = new BindingList<MenuItemRti>();
+
+            // Initialize
+            _firstLoad = true;
 
             // Selected Plot Type
             //PlotTypeList = Enum.GetValues(typeof(PlotDataType)).Cast<PlotDataType>().ToList();
@@ -400,7 +439,7 @@ namespace PlotR
             _prevGoodBottomBin = BAD_BOTTOM_BIN;
 
             // Status
-            StatusMsg = "";
+            StatusMsg = "Open a DB file...";
             StatusProgress = 0;
             StatusProgressMax = 100;
 
@@ -419,6 +458,8 @@ namespace PlotR
             openFileDialog.Filter = "project db files (*.db)|*.db|All files (*.*)|*.*";
             if (openFileDialog.ShowDialog() == true)
             {
+                _firstLoad = true;
+
                 // Set the file name
                 FileName = openFileDialog.FileName;
 
@@ -436,59 +477,29 @@ namespace PlotR
         /// </summary>
         /// <param name="fileName">File path of the project.</param>
         /// <param name="selectedPlotType">Selected Plot type.</param>
-        private async void LoadProject(string fileName, PlotDataType selectedPlotType)
+        /// <param name="minIndex">Minimum ensemble index to display.</param>
+        /// <param name="maxIndex">Minimum ensemble index to display.</param>
+        public void LoadProject(string fileName, PlotDataType selectedPlotType, int minIndex = 0, int maxIndex = 0)
         {
-            // Data to get from the project
-            PlotData data = null;
+            // Set the selected values
+            _FileName = fileName;
+            this.NotifyOfPropertyChange(() => this.FileName);
+            _SelectedPlotType = selectedPlotType;
 
-            // Create data Source string
-            string dataSource = string.Format("Data Source={0};Version=3;", fileName);
+            // Reset settings
+            _firstLoad = true;
 
-            try
-            {
-                // Create a new database connection:
-                using (SQLiteConnection sqlite_conn = new SQLiteConnection(dataSource))
-                {
-                    // Open the connection:
-                    sqlite_conn.Open();
+            // Clear the current list and get the new file list from the project
+            ProjectFileList.Clear();
+            GetFileList(fileName);
 
-                    // Get total number of ensembles in the project
-                    TotalNumEnsembles = GetNumEnsembles(sqlite_conn);
+            // Clear the current list and get the new subsystem configurations list from the project
+            SubsystemConfigList.Clear();
+            GetSubsystemConfigList(fileName);
 
-                    // Get the magnitude data
-                    await Task.Run(() => data = GetData(sqlite_conn, TotalNumEnsembles, selectedPlotType));
-
-                    // Close connection
-                    sqlite_conn.Close();
-                }
-            }
-            catch (SQLiteException e)
-            {
-                Debug.WriteLine("Error using database", e);
-                return;
-            }
-            catch (Exception e)
-            {
-                Debug.WriteLine("Error using database", e);
-                return;
-            }
-
-            // If there is no data, do not plot
-            if (data != null)
-            {
-                // Update status
-                StatusMsg = "Drawing Plot";
-
-                // Plot the Profile data from the project
-                await Task.Run(() => PlotProfileData(data.ProfileData));
-
-                // Plot the Bottom Track data from the project
-                await Task.Run(() => PlotBtSeries(data.BottomTrackData));
-            }
-            else
-            {
-                StatusMsg = "No data to plot";
-            }
+            // Draw the plot
+            DrawPlot(fileName, selectedPlotType, minIndex, maxIndex);
+            
         }
 
         #endregion
@@ -564,7 +575,7 @@ namespace PlotR
         /// <param name="maxNumEnsembles">Max number of ensembles to display.</param>
         /// <param name="selectedPlotType">Selected Plot type.</param>
         /// <returns>The selected for each ensemble and bin.</returns>
-        private PlotData GetData(SQLiteConnection cnn, int maxNumEnsembles, PlotDataType selectedPlotType)
+        private PlotData GetData(SQLiteConnection cnn, int maxNumEnsembles, PlotDataType selectedPlotType, int minIndex = 0, int maxIndex = 0)
         {
             StatusProgressMax = TotalNumEnsembles;
             StatusProgress = 0;
@@ -574,21 +585,29 @@ namespace PlotR
                 case PlotDataType.Magnitude:
                 { 
                     // Get the number of ensembles
-                    int numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM {0} WHERE {1} IS NOT NULL;;", "tblEnsemble", "EarthVelocityDS"));
+                    int numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM {0} WHERE {1} IS NOT NULL;", "tblEnsemble", "EarthVelocityDS"));
                     StatusProgressMax = numEnsembles;
 
+                    // If min and max are used, set the limit and offset
+                    LimitOffset lo = CalcLimitOffset(numEnsembles, minIndex, maxIndex);
+                    numEnsembles = lo.Limit;
+
                     // Get data
-                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "EarthVelocityDS", "EarthVelocityDS");
+                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE {1} IS NOT NULL LIMIT {2} OFFSET {3};", "EarthVelocityDS", "EarthVelocityDS", lo.Limit, lo.Offset);
                     return GetDataFromDb(cnn, numEnsembles, query, selectedPlotType);
                 }
                 case PlotDataType.Amplitude:
                 {
                     // Get the number of ensembles
-                    int numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM {0} WHERE {1} IS NOT NULL;;", "tblEnsemble", "AmplitudeDS"));
+                    int numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM {0} WHERE {1} IS NOT NULL;", "tblEnsemble", "AmplitudeDS"));
                     StatusProgressMax = numEnsembles;
-                    
+
+                    // If min and max are used, set the limit and offset
+                    LimitOffset lo = CalcLimitOffset(numEnsembles, minIndex, maxIndex);
+                    numEnsembles = lo.Limit;
+
                     // Get data
-                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE {1} IS NOT NULL;", "AmplitudeDS", "AmplitudeDS");
+                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE {1} IS NOT NULL LIMIT {2} OFFSET {3};", "AmplitudeDS", "AmplitudeDS", lo.Limit, lo.Offset);
                     return GetDataFromDb(cnn, numEnsembles, query, selectedPlotType);
                 }
                 default:
@@ -810,7 +829,7 @@ namespace PlotR
                         if (_IsMarkBadBelowBottom && rangeBin > BAD_BOTTOM_BIN && bin >= rangeBin)
                         {
                             // Mark bad below bottom
-                            data[bin] = BAD_VELOCITY;
+                            data[bin] = BAD_AMPLITUDE;
                         }
                         // Add average data to the array
                         else if (avgCnt > 0)
@@ -819,7 +838,7 @@ namespace PlotR
                         }
                         else
                         {
-                            data[bin] = BAD_VELOCITY;
+                            data[bin] = BAD_AMPLITUDE;
                         }
                     }
 
@@ -925,6 +944,89 @@ namespace PlotR
 
         #endregion
 
+        #region Draw Plot
+
+        /// <summary>
+        /// Draw the plot based off the settings.
+        /// </summary>
+        /// <param name="fileName">File name of the project.</param>
+        /// <param name="selectedPlotType">Selected plot type.</param>
+        /// <param name="minIndex">Minimum index to draw.</param>
+        /// <param name="maxIndex">Maximum index to draw.</param>
+        private async void DrawPlot(string fileName, PlotDataType selectedPlotType, int minIndex = 0, int maxIndex = 0)
+        {
+            // Data to get from the project
+            PlotData data = null;
+
+            // Verify a file was given
+            if (!string.IsNullOrEmpty(fileName))
+            {
+                // Verify the file exist
+                if (File.Exists(fileName))
+                {
+                    // Create data Source string
+                    string dataSource = string.Format("Data Source={0};Version=3;", fileName);
+
+                    try
+                    {
+                        // Create a new database connection:
+                        using (SQLiteConnection sqlite_conn = new SQLiteConnection(dataSource))
+                        {
+                            // Open the connection:
+                            sqlite_conn.Open();
+
+                            // Get total number of ensembles in the project
+                            await Task.Run(() => TotalNumEnsembles = GetNumEnsembles(sqlite_conn));
+
+                            // If this is the first time loading
+                            // show the entire plot
+                            if (_firstLoad)
+                            {
+                                _firstLoad = false;
+                                minIndex = 1;
+                                maxIndex = TotalNumEnsembles;
+                            }
+
+                            // Get the magnitude data
+                            await Task.Run(() => data = GetData(sqlite_conn, TotalNumEnsembles, selectedPlotType, minIndex, maxIndex));
+
+                            // Close connection
+                            sqlite_conn.Close();
+                        }
+                    }
+                    catch (SQLiteException e)
+                    {
+                        Debug.WriteLine("Error using database", e);
+                        return;
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.WriteLine("Error using database", e);
+                        return;
+                    }
+
+                    // If there is no data, do not plot
+                    if (data != null)
+                    {
+                        // Update status
+                        StatusMsg = "Drawing Plot";
+
+                        // Plot the Profile data from the project
+                        await Task.Run(() => PlotProfileData(data.ProfileData));
+
+                        // Plot the Bottom Track data from the project
+                        await Task.Run(() => PlotBtSeries(data.BottomTrackData));
+                    }
+                    else
+                    {
+                        StatusMsg = "No data to plot";
+                    }
+                }
+            }
+        }
+
+        #endregion
+
         #region Plot Data
 
         /// <summary>
@@ -968,7 +1070,14 @@ namespace PlotR
             StatusMsg = "Drawing Plot";
             Plot.InvalidatePlot(true);
 
-            StatusMsg = "Drawing complete.  Total Ensembles: " + data.GetLength(0);
+            if (data != null)
+            {
+                StatusMsg = "Drawing complete.  Total Ensembles: " + data.GetLength(0);
+            }
+            else
+            {
+                StatusMsg = "Drawing complete.";
+            }
         }
 
 
@@ -985,10 +1094,14 @@ namespace PlotR
             switch(eplotDataType)
             {
                 case PlotDataType.Magnitude:
+                    _SelectedPlotType = PlotDataType.Magnitude;
+                    NotifyOfPropertyChange(() => SelectedPlotType);
                     IsAmplitude = false;
                     SetMinMaxColorAxis(0, 2);
                     break;
                 case PlotDataType.Amplitude:
+                    _SelectedPlotType = PlotDataType.Amplitude;
+                    NotifyOfPropertyChange(() => SelectedPlotType);
                     IsMagnitude = false;
                     SetMinMaxColorAxis(0, 120);
                     break;
@@ -999,9 +1112,23 @@ namespace PlotR
             // Replot the data
             if (!string.IsNullOrEmpty(FileName))
             {
-                LoadProject(FileName, eplotDataType);
+                DrawPlot(FileName, eplotDataType);
             }
 
+        }
+
+        /// <summary>
+        /// Update the min and max ensembles selected.
+        /// </summary>
+        /// <param name="minIndex">Minimum ensemble index.</param>
+        /// <param name="maxIndex">Maximum ensemble index.</param>
+        public void ReplotData(int minIndex, int maxIndex)
+        {
+            // Replot the data
+            if (!string.IsNullOrEmpty(FileName))
+            {
+                DrawPlot(FileName, _SelectedPlotType, minIndex, maxIndex);
+            }
         }
 
         #endregion
@@ -1087,8 +1214,6 @@ namespace PlotR
                 return;
             }
         }
-
-
 
         #endregion
 
@@ -1194,6 +1319,195 @@ namespace PlotR
             {
                 Debug.WriteLine("Error getting the Range bin.", e);
                 return 0;
+            }
+        }
+
+        #endregion
+
+        #region Calculate Limit and Offset
+
+        /// <summary>
+        /// Calculate the limit and offset based off the indexes given.
+        /// </summary>
+        /// <param name="numEnsembles">Total number of ensembles in the project.</param>
+        /// <param name="minIndex">Minimum index.</param>
+        /// <param name="maxIndex">Maximum index.</param>
+        /// <returns></returns>
+        private LimitOffset CalcLimitOffset(int numEnsembles, int minIndex, int maxIndex)
+        {
+            LimitOffset lo = new LimitOffset();
+
+            // Verify max does not exceed the number of ensembles
+            if(maxIndex > numEnsembles)
+            {
+                maxIndex = numEnsembles;
+            }
+
+            // Check less than 0
+            if(maxIndex <= 0)
+            {
+                maxIndex = numEnsembles;
+            }
+            if(minIndex <= 0)
+            {
+                minIndex = 1;
+            }
+
+            // Verify min is less than max
+            if(maxIndex < minIndex)
+            {
+                maxIndex = minIndex + 1;
+            }
+
+            // Verify min does not exceed max
+            if(minIndex > maxIndex)
+            {
+                minIndex = maxIndex - 1;
+            }
+
+            // If min and max are used, set the limit and offset
+            int limit = numEnsembles;               // Max number of ensembles to receive
+            int offset = 0;                         // Start location in the project
+            if (minIndex != 0 && maxIndex != 0)
+            {
+                limit = maxIndex - minIndex;        // Get the total number of ensembles selected
+                offset = minIndex;                  // Get the start location
+                numEnsembles = limit;               // Set the new number of ensembles selected
+
+                // Verify limit is not to large
+                if(limit > numEnsembles)
+                {
+                    limit = numEnsembles;
+                }
+            }
+
+
+            lo.Limit = limit;
+            lo.Offset = offset;
+
+            return lo;
+        }
+
+        #endregion
+
+        #region File and Subsystem List
+
+        /// <summary>
+        /// Populate the list with all the available unique files in the project.
+        /// </summary>
+        /// <param name="fileName">File path of project.</param>
+        private void GetFileList(string fileName)
+        {
+            try
+            {
+                // Create data Source string
+                string dataSource = string.Format("Data Source={0};Version=3;", fileName);
+
+                // Create a new database connection:
+                using (SQLiteConnection cnn = new SQLiteConnection(dataSource))
+                {
+                    // Open the connection:
+                    cnn.Open();
+
+                    // Ensure a connection was made
+                    if (cnn == null)
+                    {
+                        return;
+                    }
+
+                    // Create a command to query
+                    using (DbCommand cmd = cnn.CreateCommand())
+                    {
+                        string query = string.Format("SELECT DISTINCT {0} FROM {1};", "FileName", "tblEnsemble");
+                        cmd.CommandText = query;
+
+                        // Get all the results
+                        DbDataReader reader = cmd.ExecuteReader();
+                        while (reader.Read())
+                        {
+                            if (reader == null)
+                            {
+                                break;
+                            }
+
+                            // Add file name to list
+                            ProjectFileList.Add(new MenuItemRti() { Header = reader["FileName"].ToString(), IsCheckable = true, IsChecked = true });
+                        }
+
+                    }
+                }
+            }
+            catch (SQLiteException e)
+            {
+                Debug.WriteLine("Error using database to get file names", e);
+                return;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Error using database to get file names", e);
+                return;
+            }
+        }
+
+        /// <summary>
+        /// Populate the list with all the available unique subsystem configurations in the project.
+        /// </summary>
+        /// <param name="fileName">File path of project.</param>
+        private void GetSubsystemConfigList(string fileName)
+        {
+            try
+            {
+                // Create data Source string
+                string dataSource = string.Format("Data Source={0};Version=3;", fileName);
+
+                // Create a new database connection:
+                using (SQLiteConnection cnn = new SQLiteConnection(dataSource))
+                {
+                    // Open the connection:
+                    cnn.Open();
+
+                    // Ensure a connection was made
+                    if (cnn == null)
+                    {
+                        return;
+                    }
+
+                    // Create a command to query
+                    using (DbCommand cmd = cnn.CreateCommand())
+                    {
+                        string query = string.Format("SELECT DISTINCT Subsystem,CepoIndex FROM {0};", "tblEnsemble");
+                        cmd.CommandText = query;
+
+                        // Get all the results
+                        DbDataReader reader = cmd.ExecuteReader();
+                        while (reader.Read())
+                        {
+                            if (reader == null)
+                            {
+                                break;
+                            }
+
+                            // Subsystem
+                            string subsystem = reader["Subsystem"].ToString();
+                            string cepoIndex = reader["CepoIndex"].ToString();
+                            string result = string.Format("[{0}]-{1}", subsystem, cepoIndex);
+
+                            // Add file name to list
+                            SubsystemConfigList.Add(new MenuItemRti() { Header = result, IsCheckable = true, IsChecked = true });
+                        }
+
+                    }
+                }
+            }
+            catch (SQLiteException e)
+            {
+                Debug.WriteLine("Error using database to get file names", e);
+                return;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Error using database to get file names", e);
+                return;
             }
         }
 

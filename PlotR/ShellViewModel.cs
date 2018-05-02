@@ -21,7 +21,7 @@ namespace PlotR {
         /// </summary>
         public ShellViewModel()
         {
-            ActivateItem(IoC.Get<HeatmapPlotViewModel>());
+            ActivateItem(IoC.Get<PlotrViewModel>());
         }
 
     }

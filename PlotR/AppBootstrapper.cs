@@ -17,6 +17,7 @@ namespace PlotR {
             container.Singleton<IEventAggregator, EventAggregator>();
             container.PerRequest<IShell, ShellViewModel>();
             container.Singleton<HeatmapPlotViewModel, HeatmapPlotViewModel>();
+            container.Singleton<PlotrViewModel, PlotrViewModel>();
         }
 
         protected override object GetInstance(Type service, string key) {

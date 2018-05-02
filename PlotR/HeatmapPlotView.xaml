@@ -7,39 +7,60 @@
              xmlns:local="clr-namespace:PlotR"
              mc:Ignorable="d" 
              d:DesignHeight="800" d:DesignWidth="800">
+
+    
     <DockPanel>
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
-                <MenuItem Header="_Open" Command="{Binding OpenCommand}" />
+                <MenuItem Header="_Open" Command="{Binding OpenCommand}" ToolTip="Select a project to display." />
                 <Separator />
                 <MenuItem Header="_Exit" />
             </MenuItem>
             <MenuItem Header="_Plot Type">
-
-                <MenuItem Header="_Magnitude" IsCheckable="True" IsChecked="{Binding IsMagnitude}" />
-                <MenuItem Header="_Amplitude" IsCheckable="True" IsChecked="{Binding IsAmplitude}" />
+                <MenuItem Header="_Magnitude" IsCheckable="True" IsChecked="{Binding IsMagnitude}" ToolTip="Display the Water Magnitude plot." />
+                <MenuItem Header="_Amplitude" IsCheckable="True" IsChecked="{Binding IsAmplitude}" ToolTip="Display the Water Amplitude plot." />
                 <Separator />
-                <MenuItem IsCheckable="True" IsChecked="{Binding IsBottomTrackLine}" Header="_Bottom Track Line" />
+                <MenuItem IsCheckable="True" IsChecked="{Binding IsBottomTrackLine}" Header="_Bottom Track Line" ToolTip="Add a Bottom Track line to the plot.  This line represents the depth." />
                 <Separator />
-                <MenuItem IsCheckable="True" IsChecked="{Binding IsMarkBadBelowBottom}" Header="_Mark Bad Below Bottom" />
+                <MenuItem IsCheckable="True" IsChecked="{Binding IsMarkBadBelowBottom}" Header="_Mark Bad Below Bottom" ToolTip="Mark all data below the bottom depth bad." />
+            </MenuItem>
+            <MenuItem Header="_Files" ItemsSource="{Binding ProjectFileList}">
+                <MenuItem.Resources>
+                    <Style TargetType="MenuItem">
+                        <Setter Property="Header" Value="{Binding Header}" />
+                        <Setter Property="IsCheckable" Value="{Binding IsCheckable}" />
+                        <Setter Property="IsChecked" Value="{Binding IsChecked}" />
+                        <Setter Property="Margin" Value="5" />
+                    </Style>
+                </MenuItem.Resources>
+            </MenuItem>
+            <MenuItem Header="_Subsystem Config" ItemsSource="{Binding SubsystemConfigList}">
+                <MenuItem.Resources>
+                    <Style TargetType="MenuItem">
+                        <Setter Property="Header" Value="{Binding Header}" />
+                        <Setter Property="IsCheckable" Value="{Binding IsCheckable}" />
+                        <Setter Property="IsChecked" Value="{Binding IsChecked}" />
+                        <Setter Property="Margin" Value="5" />
+                    </Style>
+                </MenuItem.Resources>
             </MenuItem>
         </Menu>
 
         <StatusBar DockPanel.Dock="Bottom">
             <StatusBarItem>
-                <TextBlock Text="{Binding FileName}" />
+                <TextBlock Text="{Binding FileName}" ToolTip="{Binding FileName}" Width="300" />
             </StatusBarItem>
             <Separator Margin="5,0" />
             <StatusBarItem>
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock Text="{Binding StatusMsg}" Margin="5,0" />
-                    <ProgressBar Minimum="0" Maximum="{Binding StatusProgressMax}" Value="{Binding StatusProgress}" Width="100" Margin="5,0" />
+                    <TextBlock Text="{Binding StatusMsg}" Margin="5,0" ToolTip="{Binding StatusMsg}" />
+                    <ProgressBar Minimum="0" Maximum="{Binding StatusProgressMax}" Value="{Binding StatusProgress}" Width="100" Margin="5,0" ToolTip="Progress displaying the data." />
                 </StackPanel>
             </StatusBarItem>
             <StatusBarItem HorizontalAlignment="Right">
                 <StackPanel Orientation="Horizontal">
                     <TextBlock Text="Ensembles: " />
-                    <TextBlock Text="{Binding TotalNumEnsembles}" Margin="0,0,5,0" />
+                    <TextBlock Text="{Binding TotalNumEnsembles}" Margin="0,0,5,0" ToolTip="Total number of ensembles to display." />
                 </StackPanel>
 
             </StatusBarItem>
