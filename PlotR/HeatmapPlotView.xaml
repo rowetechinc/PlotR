@@ -4,6 +4,7 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
              xmlns:oxy="clr-namespace:OxyPlot.Wpf;assembly=OxyPlot.Wpf"
+             xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
              xmlns:local="clr-namespace:PlotR"
              mc:Ignorable="d" 
              d:DesignHeight="800" d:DesignWidth="800">
@@ -13,23 +14,23 @@
         <Menu DockPanel.Dock="Top">
             <MenuItem Header="_File">
                 <MenuItem Header="_Open" Command="{Binding OpenCommand}" ToolTip="Select a project to display." />
-                <Separator />
-                <MenuItem Header="_Exit" />
             </MenuItem>
             <MenuItem Header="_Plot Type">
                 <MenuItem Header="_Magnitude" IsCheckable="True" IsChecked="{Binding IsMagnitude}" ToolTip="Display the Water Magnitude plot." />
+                <MenuItem Header="_Direction" IsCheckable="True" IsChecked="{Binding IsDirection}" ToolTip="Display the Water Amplitude plot." />
                 <MenuItem Header="_Amplitude" IsCheckable="True" IsChecked="{Binding IsAmplitude}" ToolTip="Display the Water Amplitude plot." />
                 <Separator />
                 <MenuItem IsCheckable="True" IsChecked="{Binding IsBottomTrackLine}" Header="_Bottom Track Line" ToolTip="Add a Bottom Track line to the plot.  This line represents the depth." />
                 <Separator />
                 <MenuItem IsCheckable="True" IsChecked="{Binding IsMarkBadBelowBottom}" Header="_Mark Bad Below Bottom" ToolTip="Mark all data below the bottom depth bad." />
             </MenuItem>
-            <MenuItem Header="_Files" ItemsSource="{Binding ProjectFileList}">
+            <MenuItem Header="_Selected Files" ItemsSource="{Binding ProjectFileList}">
                 <MenuItem.Resources>
                     <Style TargetType="MenuItem">
                         <Setter Property="Header" Value="{Binding Header}" />
                         <Setter Property="IsCheckable" Value="{Binding IsCheckable}" />
                         <Setter Property="IsChecked" Value="{Binding IsChecked}" />
+                        <Setter Property="Command" Value="{Binding Command}" />
                         <Setter Property="Margin" Value="5" />
                     </Style>
                 </MenuItem.Resources>
@@ -40,9 +41,30 @@
                         <Setter Property="Header" Value="{Binding Header}" />
                         <Setter Property="IsCheckable" Value="{Binding IsCheckable}" />
                         <Setter Property="IsChecked" Value="{Binding IsChecked}" />
+                        <Setter Property="Command" Value="{Binding Command}" />
                         <Setter Property="Margin" Value="5" />
                     </Style>
                 </MenuItem.Resources>
+            </MenuItem>
+            <MenuItem Header="_Plot Options">
+                <MenuItem.Resources>
+                    <DataTemplate x:Key="paletteTemplate">
+                        <Rectangle Height="20" Width="150" Fill="{Binding Converter={StaticResource OxyPaletteToBrushConverter}}" Stroke="Black" />
+                    </DataTemplate>
+                </MenuItem.Resources>
+                <StackPanel Orientation="Vertical">
+                    <Label Content="Plot Color" />
+                    <ComboBox ItemsSource="{Binding Path=PaletteList}" SelectedItem="{Binding Path=SelectedPalette}" ItemTemplate="{StaticResource paletteTemplate}" />
+                </StackPanel>
+                <Separator />
+                <StackPanel Orientation="Vertical">
+                    <Label Content="Minimum Legend Value" />
+                    <Controls:NumericUpDown Value="{Binding CurrentMinValue}" ToolTip="Set the minimum value in the color legend." />
+                </StackPanel>
+                <StackPanel Orientation="Vertical">
+                    <Label Content="Maximum Legend Value" />
+                    <Controls:NumericUpDown Value="{Binding CurrentMaxValue}" ToolTip="Set the maixmum value in the color legend." />
+                </StackPanel>
             </MenuItem>
         </Menu>
 

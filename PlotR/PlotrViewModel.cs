@@ -16,15 +16,6 @@ namespace PlotR
 {
     class PlotrViewModel : Conductor<object>
     {
-        #region Variables
-
-        /// <summary>
-        /// Selected Plot type.
-        /// </summary>
-        private HeatmapPlotViewModel.PlotDataType _SelectedPlotType;
-
-        #endregion
-
         #region Properties
 
         #region File name
@@ -133,6 +124,11 @@ namespace PlotR
         /// </summary>
         public ReactiveCommand<Unit, Unit> OpenCommand { get; private set; }
 
+        /// <summary>
+        /// Exit the application
+        /// </summary>
+        public ReactiveCommand<Unit, Unit> ExitCommand { get; private set; }
+
         #endregion
 
         /// <summary>
@@ -153,6 +149,9 @@ namespace PlotR
 
             // Open file commands
             this.OpenCommand = ReactiveCommand.Create(() => OpenFile());
+
+            // Exit command
+            this.ExitCommand = ReactiveCommand.Create(() => System.Windows.Application.Current.Shutdown());
         }
 
         #region Open File
@@ -243,7 +242,7 @@ namespace PlotR
         {
             if (Heatmap != null)
             {
-                Heatmap.LoadProject(FileName, HeatmapPlotViewModel.PlotDataType.Magnitude, _CurrentMinValue, _CurrentMaxValue);     // Default use magnitude
+                Heatmap.LoadProject(FileName, PlotDataType.Magnitude, _CurrentMinValue, _CurrentMaxValue);     // Default use magnitude
             }
         }
 

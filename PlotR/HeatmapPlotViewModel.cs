@@ -51,18 +51,9 @@ namespace PlotR
     /// <summary>
     /// Heat map plot.
     /// </summary>
-    class HeatmapPlotViewModel : Caliburn.Micro.PropertyChangedBase
+    public class HeatmapPlotViewModel : Caliburn.Micro.PropertyChangedBase, IPlotViewModel
     {
         #region Enum
-
-        /// <summary>
-        /// Different Plot types.
-        /// </summary>
-        public enum PlotDataType
-        {
-            Magnitude,
-            Amplitude,
-        }
 
         /// <summary>
         /// Limit and offset value.
@@ -137,6 +128,11 @@ namespace PlotR
         private int BAD_BOTTOM_BIN = 0;
 
         /// <summary>
+        /// Color legend key.
+        /// </summary>
+        private string COLOR_LEGEND_KEY = "ColorLegend";
+
+        /// <summary>
         /// Store the last good Bottom Track Range Bin value.
         /// This is used as a backup value for Bottom Track Range Bin value if
         /// the current bottom track is bad.
@@ -148,6 +144,26 @@ namespace PlotR
         /// number of ensembles.  This flag is reset anytime a new project is loaded.
         /// </summary>
         private bool _firstLoad;
+
+        /// <summary>
+        /// Bin size for the current project.
+        /// </summary>
+        private double _binSize;
+
+        /// <summary>
+        /// Blank size for the current project.
+        /// </summary>
+        private double _blankSize;
+
+        /// <summary>
+        /// Axis to show the depth.
+        /// </summary>
+        LinearAxis _depthAxis;
+
+        /// <summary>
+        /// Axis to show the bins.
+        /// </summary>
+        LinearAxis _binAxis;
 
         #endregion
 
@@ -313,6 +329,29 @@ namespace PlotR
         }
 
         /// <summary>
+        /// Water Direction Plot Selected.
+        /// </summary>
+        private bool _IsDirection;
+        /// <summary>
+        /// Water Direction Plot Selected.
+        /// </summary>
+        public bool IsDirection
+        {
+            get { return _IsDirection; }
+            set
+            {
+                _IsDirection = value;
+                NotifyOfPropertyChange(() => IsDirection);
+
+                if (value)
+                {
+                    // Replot data
+                    ReplotData(PlotDataType.Direction);
+                }
+            }
+        }
+
+        /// <summary>
         /// Amplitude Plot Selected.
         /// </summary>
         private bool _IsAmplitude;
@@ -395,7 +434,88 @@ namespace PlotR
         /// <summary>
         /// List of all the Subsystem configurations.
         /// </summary>
-        public BindingList<MenuItemRti> SubsystemConfigList { get; set; }
+        public BindingList<MenuItemRtiSubsystem> SubsystemConfigList { get; set; }
+
+        #endregion
+
+        #region Plot Color Selection
+
+        public BindingList<OxyPalette> PaletteList { get; set; }
+
+        /// <summary>
+        /// Selected palette.
+        /// </summary>
+        private OxyPalette _SelectedPalette;
+        /// <summary>
+        /// Selected palette.
+        /// </summary>
+        public OxyPalette SelectedPalette
+        {
+            get { return _SelectedPalette; }
+            set
+            {
+                _SelectedPalette = value;
+                NotifyOfPropertyChange(() => SelectedPalette);
+
+                // Set the new plot palette
+                foreach(var axis in Plot.Axes)
+                {
+                    if(axis.Key == COLOR_LEGEND_KEY)
+                    {
+                        // Change the palette
+                        ((LinearColorAxis)axis).Palette = SelectedPalette;
+
+                        // Update the plot
+                        Plot.InvalidatePlot(true);
+                    }
+                }
+            }
+        }
+
+        #endregion
+
+        #region Min and Max Legend 
+
+        /// <summary>
+        /// Current Minimum value.
+        /// </summary>
+        private double _CurrentMinValue;
+        /// <summary>
+        /// Current Minimum value.
+        /// </summary>
+        public double CurrentMinValue
+        {
+            get { return _CurrentMinValue; }
+            set
+            {
+                _CurrentMinValue = value;
+                NotifyOfPropertyChange(() => CurrentMinValue);
+
+                // Set the new plot palette
+                SetMinMaxColorAxis(_CurrentMinValue, _CurrentMaxValue);
+            }
+        }
+
+        /// <summary>
+        /// Current Maximum value.
+        /// </summary>
+        private double _CurrentMaxValue;
+        /// <summary>
+        /// Current Maximum value.
+        /// </summary>
+        public double CurrentMaxValue
+        {
+            get { return _CurrentMaxValue; }
+            set
+            {
+                _CurrentMaxValue = value;
+                NotifyOfPropertyChange(() => CurrentMaxValue);
+
+                // Set the new plot palette
+                SetMinMaxColorAxis(_CurrentMinValue, _CurrentMaxValue);
+            }
+        }
+
 
         #endregion
 
@@ -407,6 +527,16 @@ namespace PlotR
         /// Command to select an SQLite file.
         /// </summary>
         public ReactiveCommand<Unit, Unit> OpenCommand { get; private set; }
+
+        /// <summary>
+        /// File selection changed.
+        /// </summary>
+        public ReactiveCommand<Unit, Unit> FileSelectionCommand { get; private set; }
+
+        /// <summary>
+        /// Subsystem selection changed.
+        /// </summary>
+        public ReactiveCommand<Unit, Unit> SubsystemSelectionCommand { get; private set; }
 
         #endregion
 
@@ -421,10 +551,16 @@ namespace PlotR
 
             // List of project files and subsystem
             ProjectFileList = new BindingList<MenuItemRti>();
-            SubsystemConfigList = new BindingList<MenuItemRti>();
+            SubsystemConfigList = new BindingList<MenuItemRtiSubsystem>();
+            CreatePaletteList();
+            _SelectedPalette = OxyPalettes.Jet(64);
 
             // Initialize
             _firstLoad = true;
+            _binSize = 0.0;
+            _blankSize = 0.0;
+            CurrentMinValue = 0.0;
+            CurrentMaxValue = 2.0;
 
             // Selected Plot Type
             //PlotTypeList = Enum.GetValues(typeof(PlotDataType)).Cast<PlotDataType>().ToList();
@@ -445,30 +581,13 @@ namespace PlotR
 
             // Setup commands
             this.OpenCommand = ReactiveCommand.Create(() => OpenFile());
+
+            // When a file selection is made
+            this.FileSelectionCommand = ReactiveCommand.Create(() => ReplotData());
+
+            // When a subsystem selection is made
+            this.SubsystemSelectionCommand = ReactiveCommand.Create(() => ReplotData());
         }
-
-        #region Open File
-
-        /// <summary>
-        /// Select the file to open.
-        /// </summary>
-        private void OpenFile()
-        {
-            OpenFileDialog openFileDialog = new OpenFileDialog();
-            openFileDialog.Filter = "project db files (*.db)|*.db|All files (*.*)|*.*";
-            if (openFileDialog.ShowDialog() == true)
-            {
-                _firstLoad = true;
-
-                // Set the file name
-                FileName = openFileDialog.FileName;
-
-                // Load the project
-                LoadProject(FileName, _SelectedPlotType);
-            }
-        }
-
-        #endregion
 
         #region Load Project
 
@@ -499,7 +618,30 @@ namespace PlotR
 
             // Draw the plot
             DrawPlot(fileName, selectedPlotType, minIndex, maxIndex);
-            
+
+        }
+
+        #endregion
+
+        #region Open File
+
+        /// <summary>
+        /// Select the file to open.
+        /// </summary>
+        private void OpenFile()
+        {
+            OpenFileDialog openFileDialog = new OpenFileDialog();
+            openFileDialog.Filter = "project db files (*.db)|*.db|All files (*.*)|*.*";
+            if (openFileDialog.ShowDialog() == true)
+            {
+                _firstLoad = true;
+
+                // Set the file name
+                FileName = openFileDialog.FileName;
+
+                // Load the project
+                LoadProject(FileName, _SelectedPlotType);
+            }
         }
 
         #endregion
@@ -580,39 +722,64 @@ namespace PlotR
             StatusProgressMax = TotalNumEnsembles;
             StatusProgress = 0;
 
+            // Get the data to plot
+            return QueryDataFromDb(cnn, selectedPlotType, minIndex, maxIndex);
+        }
+
+        /// <summary>
+        /// Query the project database for the data to plot.
+        /// </summary>
+        /// <param name="cnn">SQLite connection.</param>
+        /// <param name="selectedPlotType">Selected Plot Type.</param>
+        /// <param name="minIndex">Minimum index.</param>
+        /// <param name="maxIndex">Maximum index.</param>
+        /// <returns></returns>
+        private PlotData QueryDataFromDb(SQLiteConnection cnn, PlotDataType selectedPlotType, int minIndex = 0, int maxIndex = 0)
+        {
+            // Get the dataset column name
+            string datasetColumnName = "EarthVelocityDS";
             switch (selectedPlotType)
             {
                 case PlotDataType.Magnitude:
-                { 
-                    // Get the number of ensembles
-                    int numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM {0} WHERE {1} IS NOT NULL;", "tblEnsemble", "EarthVelocityDS"));
-                    StatusProgressMax = numEnsembles;
-
-                    // If min and max are used, set the limit and offset
-                    LimitOffset lo = CalcLimitOffset(numEnsembles, minIndex, maxIndex);
-                    numEnsembles = lo.Limit;
-
-                    // Get data
-                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE {1} IS NOT NULL LIMIT {2} OFFSET {3};", "EarthVelocityDS", "EarthVelocityDS", lo.Limit, lo.Offset);
-                    return GetDataFromDb(cnn, numEnsembles, query, selectedPlotType);
-                }
+                    datasetColumnName = "EarthVelocityDS";          // Velocity vectors from Earth Velocity
+                    break;
+                case PlotDataType.Direction:
+                    datasetColumnName = "EarthVelocityDS";          // Velocity vectors from Earth Velocity
+                    break;
                 case PlotDataType.Amplitude:
-                {
-                    // Get the number of ensembles
-                    int numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM {0} WHERE {1} IS NOT NULL;", "tblEnsemble", "AmplitudeDS"));
-                    StatusProgressMax = numEnsembles;
-
-                    // If min and max are used, set the limit and offset
-                    LimitOffset lo = CalcLimitOffset(numEnsembles, minIndex, maxIndex);
-                    numEnsembles = lo.Limit;
-
-                    // Get data
-                    string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE {1} IS NOT NULL LIMIT {2} OFFSET {3};", "AmplitudeDS", "AmplitudeDS", lo.Limit, lo.Offset);
-                    return GetDataFromDb(cnn, numEnsembles, query, selectedPlotType);
-                }
+                    datasetColumnName = "AmplitudeDS";              // Amplitude data
+                    break;
                 default:
-                    return null;
+                    datasetColumnName = "EarthVelocityDS";
+                    break;
             }
+
+            // Get the number of ensembles
+            int numEnsembles = GetNumEnsembles(cnn, string.Format("SELECT COUNT(*) FROM tblEnsemble WHERE ({0} IS NOT NULL) {1} {2};",
+                                                                    datasetColumnName,
+                                                                    GenerateQueryFileList(),
+                                                                    GenerateQuerySubsystemList()));
+            // Update the progress bar
+            StatusProgressMax = numEnsembles;
+
+            // If min and max are used, set the limit and offset
+            LimitOffset lo = CalcLimitOffset(numEnsembles, minIndex, maxIndex);
+            numEnsembles = lo.Limit;
+
+            // Update the progress bar
+            StatusProgressMax = numEnsembles;
+
+            // Get data
+            string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE ({1} IS NOT NULL) {2} {3} LIMIT {4} OFFSET {5};",
+                                            datasetColumnName,
+                                            datasetColumnName,
+                                            GenerateQueryFileList(),
+                                            GenerateQuerySubsystemList(),
+                                            lo.Limit,
+                                            lo.Offset);
+
+            // Return the data to plot
+            return GetDataFromDb(cnn, numEnsembles, query, selectedPlotType);
         }
 
         /// <summary>
@@ -717,6 +884,8 @@ namespace PlotR
             {
                 case PlotDataType.Magnitude:
                     return ParseMagData(reader);
+                case PlotDataType.Direction:
+                    return ParseDirData(reader);
                 case PlotDataType.Amplitude:
                     return ParseAmpData(reader);
                 default:
@@ -777,6 +946,63 @@ namespace PlotR
             catch (Exception e)
             {
                 Debug.WriteLine("Error parsing the Earth Velocity Magnitude data row", e);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Process the row from the DB.  A row represents an ensemble.
+        /// </summary>
+        /// <param name="reader">Database connection data.</param>
+        /// <returns>Direction data for a row.</returns>
+        private double[] ParseDirData(DbDataReader reader)
+        {
+            try
+            {
+                // Get Range Bin if marking bad below bottom
+                int rangeBin = BAD_BOTTOM_BIN;
+                if (IsMarkBadBelowBottom)
+                {
+                    rangeBin = GetRangeBin(reader);
+                }
+
+                // Get the earth data as a JSON string
+                string jsonEarth = reader["EarthVelocityDS"].ToString();
+
+                if (!string.IsNullOrEmpty(jsonEarth))
+                {
+                    // Convert to a JSON object
+                    JObject ensEarth = JObject.Parse(jsonEarth);
+
+                    // Get the number of bins
+                    int numBins = ensEarth["NumElements"].ToObject<int>();
+                    //Debug.WriteLine("Num Bins: " + numBins);
+
+                    //Debug.WriteLine(ensEarth["VelocityVectors"][0]["Magnitude"]);
+                    double[] data = new double[numBins];
+                    for (int bin = 0; bin < numBins; bin++)
+                    {
+                        // Check if Mark bad below bottom
+                        if (_IsMarkBadBelowBottom && rangeBin > BAD_BOTTOM_BIN && bin >= rangeBin)
+                        {
+                            // Mark Bad Below Bottom
+                            data[bin] = BAD_VELOCITY;
+                        }
+                        else
+                        {
+                            // Get the velocity vector magntidue from the JSON object and add it to the array
+                            data[bin] = ensEarth["VelocityVectors"][bin]["DirectionXNorth"].ToObject<double>();
+                        }
+                    }
+
+                    return data;
+                }
+
+                return null;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Error parsing the Earth Velocity Direction data row", e);
                 return null;
             }
         }
@@ -865,6 +1091,7 @@ namespace PlotR
         private PlotModel CreatePlot()
         {
             PlotModel temp = new PlotModel();
+            //temp.Background = OxyColors.Black;
 
             // Color Legend
             var linearColorAxis1 = new LinearColorAxis();
@@ -872,8 +1099,9 @@ namespace PlotR
             linearColorAxis1.LowColor = OxyColors.Black;
             linearColorAxis1.Palette = OxyPalettes.Jet(64);
             linearColorAxis1.Position = AxisPosition.Right;
-            linearColorAxis1.Minimum = 0.0;
-            linearColorAxis1.Maximum = 2.0;
+            linearColorAxis1.Minimum = CurrentMinValue;
+            linearColorAxis1.Maximum = CurrentMaxValue;
+            linearColorAxis1.Key = COLOR_LEGEND_KEY;
             temp.Axes.Add(linearColorAxis1);
 
             // Bottom Axis 
@@ -885,12 +1113,33 @@ namespace PlotR
             temp.Axes.Add(linearAxis2);
 
             // Left axis in Bins
-            temp.Axes.Add(CreatePlotAxis(AxisPosition.Left, "bins"));
+            _binAxis = CreatePlotAxis(AxisPosition.Left, "bins");
+            _binAxis.AxisChanged += BinAxis_AxisChanged;
+            _binAxis.Key = "BinAxis";
+            temp.Axes.Add(_binAxis);
 
-            // Right axis in Meters
-            temp.Axes.Add(CreatePlotAxis(AxisPosition.Left, "meters", 2));
+            // Left axis in Meters next to bins
+            _depthAxis = CreatePlotAxis(AxisPosition.Left, "meters", 2);
+            _depthAxis.Key = "DepthAxis";
+            temp.Axes.Add(_depthAxis);
 
             return temp;
+        }
+
+        /// <summary>
+        /// Handle changes to the bin axis.
+        /// </summary>
+        /// <param name="sender"></param>
+        /// <param name="e"></param>
+        private void BinAxis_AxisChanged(object sender, AxisChangedEventArgs e)
+        {
+            // Get the current selections
+            double minBin = _binAxis.ActualMinimum;
+            double maxBin = _binAxis.ActualMaximum;
+
+            // Set the axis for the depth axis
+            _depthAxis.Minimum = _blankSize + (minBin * _binSize);
+            _depthAxis.Maximum = _blankSize + (maxBin * _binSize);
         }
 
         /// <summary>
@@ -907,11 +1156,11 @@ namespace PlotR
             LinearAxis axis = new LinearAxis();
 
             // Standard options
-            axis.TicklineColor = OxyColors.White;
-            axis.MajorGridlineStyle = LineStyle.Solid;
-            axis.MinorGridlineStyle = LineStyle.Solid;
-            axis.MajorGridlineColor = OxyColor.FromAColor(40, OxyColors.White);
-            axis.MinorGridlineColor = OxyColor.FromAColor(20, OxyColors.White);
+            //axis.TicklineColor = OxyColors.White;
+            //axis.MajorGridlineStyle = LineStyle.Solid;
+            //axis.MinorGridlineStyle = LineStyle.Solid;
+            //axis.MajorGridlineColor = OxyColor.FromAColor(40, OxyColors.White);
+            //axis.MinorGridlineColor = OxyColor.FromAColor(20, OxyColors.White);
             axis.EndPosition = 0;
             axis.StartPosition = 1;
             axis.Position = position;
@@ -938,6 +1187,9 @@ namespace PlotR
                 {
                     ((LinearColorAxis)axis).Minimum = min;
                     ((LinearColorAxis)axis).Maximum = max;
+
+                    // Update the plot
+                    Plot.InvalidatePlot(true);
                 }
             }
         }
@@ -985,6 +1237,9 @@ namespace PlotR
                                 _firstLoad = false;
                                 minIndex = 1;
                                 maxIndex = TotalNumEnsembles;
+
+                                // Set the Bin size and blank
+                                SetBinSizeAndBlank(sqlite_conn);
                             }
 
                             // Get the magnitude data
@@ -1016,6 +1271,9 @@ namespace PlotR
 
                         // Plot the Bottom Track data from the project
                         await Task.Run(() => PlotBtSeries(data.BottomTrackData));
+
+                        // Reset the axis to set the meters axis
+                        await Task.Run(() => Plot.ResetAllAxes());
                     }
                     else
                     {
@@ -1097,13 +1355,25 @@ namespace PlotR
                     _SelectedPlotType = PlotDataType.Magnitude;
                     NotifyOfPropertyChange(() => SelectedPlotType);
                     IsAmplitude = false;
+                    IsDirection = false;
                     SetMinMaxColorAxis(0, 2);
+                    Plot.Title = "Water Magnitude";
+                    break;
+                case PlotDataType.Direction:
+                    _SelectedPlotType = PlotDataType.Direction;
+                    NotifyOfPropertyChange(() => SelectedPlotType);
+                    IsAmplitude = false;
+                    IsMagnitude = false;
+                    SetMinMaxColorAxis(0, 360);
+                    Plot.Title = "Water Direction";
                     break;
                 case PlotDataType.Amplitude:
                     _SelectedPlotType = PlotDataType.Amplitude;
                     NotifyOfPropertyChange(() => SelectedPlotType);
                     IsMagnitude = false;
+                    IsDirection = false;
                     SetMinMaxColorAxis(0, 120);
+                    Plot.Title = "Amplitude";
                     break;
                 default:
                     break;
@@ -1131,6 +1401,18 @@ namespace PlotR
             }
         }
 
+        /// <summary>
+        /// Update plot.
+        /// </summary>
+        public void ReplotData()
+        {
+            // Replot the data
+            if (!string.IsNullOrEmpty(FileName))
+            {
+                DrawPlot(FileName, _SelectedPlotType);
+            }
+        }
+
         #endregion
 
         #region Bottom Track Line
@@ -1138,7 +1420,7 @@ namespace PlotR
         /// <summary>
         /// Add Bottom Track line series.  This will be a line to mark the bottom.
         /// </summary>
-        public void PlotBtSeries(AreaSeries series)
+        private void PlotBtSeries(AreaSeries series)
         {
             // Lock the plot for an update
             lock (Plot.SyncRoot)
@@ -1390,7 +1672,59 @@ namespace PlotR
 
         #endregion
 
-        #region File and Subsystem List
+        #region Bin Size and Blank
+
+        /// <summary>
+        /// Get the bin size and blank of the current project.
+        /// </summary>
+        /// <param name="cnn">SQLite connection.</param>
+        private void SetBinSizeAndBlank(SQLiteConnection cnn)
+        {
+            try
+            {
+                string query = string.Format("SELECT AncillaryDS FROM {0} LIMIT 1;", "tblEnsemble");
+
+                // Ensure a connection was made
+                if (cnn == null)
+                {
+                    return;
+                }
+
+                using (DbCommand cmd = cnn.CreateCommand())
+                {
+                    cmd.CommandText = query;
+
+                    // Get Result
+                    DbDataReader reader = cmd.ExecuteReader();
+                    while (reader.Read())
+                    {
+                        // Get the ancillary data
+                        string jsonAncillary = reader["AncillaryDS"].ToString();
+
+                        if(!string.IsNullOrEmpty(jsonAncillary))
+                        {
+                            // Parse JSON
+                            JObject ancData = JObject.Parse(jsonAncillary);
+
+                            // Get Bin Size and First bin
+                            _binSize = ancData["BinSize"].ToObject<double>();
+                            _blankSize = ancData["FirstBinRange"].ToObject<double>();
+
+                            // Set the major step based off the bin size
+                            _depthAxis.MajorStep = _binSize * 2.0;
+                        }
+                    }
+                }
+            }
+            catch(Exception e)
+            {
+                Debug.WriteLine("Error getting the bin size and blank.", e);
+            }
+        }
+
+        #endregion
+
+        #region File List
 
         /// <summary>
         /// Populate the list with all the available unique files in the project.
@@ -1431,7 +1765,7 @@ namespace PlotR
                             }
 
                             // Add file name to list
-                            ProjectFileList.Add(new MenuItemRti() { Header = reader["FileName"].ToString(), IsCheckable = true, IsChecked = true });
+                            ProjectFileList.Add(new MenuItemRti() { Header = reader["FileName"].ToString(), IsCheckable = true, IsChecked = true, Command = FileSelectionCommand });
                         }
 
                     }
@@ -1448,6 +1782,55 @@ namespace PlotR
                 return;
             }
         }
+
+        /// <summary>
+        /// Get the query string to inclue the complete list of selected files.
+        /// </summary>
+        /// <returns></returns>
+        private string GenerateQueryFileList()
+        {
+            if(ProjectFileList.Count <= 0)
+            {
+                return "";
+            }
+
+            // Build up the list of selected files
+            StringBuilder sb = new StringBuilder();
+            foreach(var item in ProjectFileList)
+            {
+                // If checked, add to list
+                if (item.IsChecked)
+                {
+                    sb.Append(string.Format("'{0}',", item.Header));
+                }
+            }
+
+            // Convert to string
+            string fileList = sb.ToString();
+
+            if (!string.IsNullOrEmpty(fileList))
+            {
+                // Remove the last comma
+                fileList = fileList.Substring(0, fileList.Length - 1);
+                return string.Format("AND (FileName IN ({0}))", fileList);
+            }
+            //else
+            //{
+            //    // If known of the files are selected, then select all of them again
+            //    foreach(var item in ProjectFileList)
+            //    {
+            //        item.IsChecked = true;
+            //        NotifyOfPropertyChange(() => ProjectFileList);
+            //    }
+            //}
+
+            return "";
+
+        }
+
+        #endregion
+
+        #region Subsystem List
 
         /// <summary>
         /// Populate the list with all the available unique subsystem configurations in the project.
@@ -1493,7 +1876,7 @@ namespace PlotR
                             string result = string.Format("[{0}]-{1}", subsystem, cepoIndex);
 
                             // Add file name to list
-                            SubsystemConfigList.Add(new MenuItemRti() { Header = result, IsCheckable = true, IsChecked = true });
+                            SubsystemConfigList.Add(new MenuItemRtiSubsystem() { Header = result, IsCheckable = true, IsChecked = true, Command = SubsystemSelectionCommand, Subsystem = subsystem, CepoIndex = cepoIndex });
                         }
 
                     }
@@ -1509,6 +1892,63 @@ namespace PlotR
                 Debug.WriteLine("Error using database to get file names", e);
                 return;
             }
+        }
+
+        /// <summary>
+        /// Get the query string to inclue the complete list of selected Subsystem.
+        /// </summary>
+        /// <returns></returns>
+        private string GenerateQuerySubsystemList()
+        {
+            if (SubsystemConfigList.Count <= 0)
+            {
+                return "";
+            }
+
+            // Build up the list of selected files
+            StringBuilder sb = new StringBuilder();
+            foreach (var item in SubsystemConfigList)
+            {
+                // If checked, add to list
+                if (item.IsChecked)
+                {
+                    sb.Append(string.Format("(Subsystem = {0} AND CepoIndex = {1}) OR", item.Subsystem, item.CepoIndex));
+                }
+            }
+
+            // Convert to string
+            string subsystemList = sb.ToString();
+
+            if (!string.IsNullOrEmpty(subsystemList))
+            {
+                // Remove the last AND
+                subsystemList = subsystemList.Substring(0, subsystemList.Length - 3);
+                return string.Format("AND ({0})", subsystemList);
+            }
+
+            return "";
+        }
+
+        #endregion
+
+        #region Palette List
+
+        /// <summary>
+        /// Create the palette list.
+        /// </summary>
+        private void CreatePaletteList()
+        {
+            PaletteList = new BindingList<OxyPalette>();
+            PaletteList.Add(OxyPalettes.BlackWhiteRed(64));
+            PaletteList.Add(OxyPalettes.BlueWhiteRed(64));
+            PaletteList.Add(OxyPalettes.BlueWhiteRed31);
+            PaletteList.Add(OxyPalettes.Cool(64));
+            PaletteList.Add(OxyPalettes.Gray(64));
+            PaletteList.Add(OxyPalettes.Hot(64));
+            PaletteList.Add(OxyPalettes.Hue64);
+            PaletteList.Add(OxyPalettes.HueDistinct(64));
+            PaletteList.Add(OxyPalettes.Jet(64));
+            PaletteList.Add(OxyPalettes.Rainbow(64));
         }
 
         #endregion

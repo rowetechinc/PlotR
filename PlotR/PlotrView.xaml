@@ -14,7 +14,7 @@
             <MenuItem Header="_File">
                 <MenuItem Header="_Open" Command="{Binding OpenCommand}" ToolTip="Select a project to display." />
                 <Separator />
-                <MenuItem Header="_Exit" />
+                <MenuItem Header="_Exit" Command="{Binding ExitCommand}" ToolTip="Exit the application" />
             </MenuItem>
         </Menu>
 
@@ -42,10 +42,10 @@
                               />
             <Controls:NumericUpDown Grid.Column="1" Value="{Binding CurrentMinValue, Mode=TwoWay}" Minimum="1" Margin="5" ToolTip="Minimum ensemble to display."  />
             <Controls:NumericUpDown Grid.Column="2" Value="{Binding CurrentMaxValue, Mode=TwoWay}" Minimum="1" Margin="2.5,5" ToolTip="Maximum ensemble to display." />
-            <Button Grid.Column="3" cal:Message.Attach="[Event Click] = [Action UpdateEnsembleSelections]" Margin="2.5,5"  >
+            <Button Grid.Column="3" cal:Message.Attach="[Event Click] = [Action UpdateEnsembleSelections]" Margin="2.5,5" ToolTip="Reload the plot"  >
                 <iconPacks:PackIconModern Kind="Refresh" />
             </Button>
-            <Button Grid.Column="4" cal:Message.Attach="[Event Click] = [Action DisplayAll]" Margin="2.5,5"  >
+            <Button Grid.Column="4" cal:Message.Attach="[Event Click] = [Action DisplayAll]" Margin="2.5,5" ToolTip="Expand the plot to maximum size."  >
                 <iconPacks:PackIconModern Kind="ArrowExpand" />
             </Button>
             <TextBlock Grid.Column="5" Text="{Binding TotalEnsembles}" Margin="2.5,5,5,5" HorizontalAlignment="Center" VerticalAlignment="Center" ToolTip="Total number of ensembles in the project." />

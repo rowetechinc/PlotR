@@ -138,13 +138,19 @@
       <DependentUpon>HeatmapPlotView.xaml</DependentUpon>
     </Compile>
     <Compile Include="HeatmapPlotViewModel.cs" />
+    <Compile Include="IPlotViewModel.cs" />
     <Compile Include="IShell.cs" />
     <Compile Include="MenuItemRti.cs" />
+    <Compile Include="OxyPaletteToBrushConverter.cs" />
     <Compile Include="PlotrView.xaml.cs">
       <DependentUpon>PlotrView.xaml</DependentUpon>
     </Compile>
     <Compile Include="PlotrViewModel.cs" />
     <Compile Include="ShellViewModel.cs" />
+    <Page Include="Defaults.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
     <Page Include="hamburger.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

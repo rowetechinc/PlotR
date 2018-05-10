@@ -42,4 +42,20 @@ namespace PlotR
             IsChecked = false;
         }
     }
+
+    /// <summary>
+    /// Menu item for Subsystems configurations.
+    /// </summary>
+    public class MenuItemRtiSubsystem : MenuItemRti
+    {
+        /// <summary>
+        /// System code.
+        /// </summary>
+        public string Subsystem { get; set; }
+
+        /// <summary>
+        /// CEPO index.
+        /// </summary>
+        public string CepoIndex { get; set; }
+    }
 }
