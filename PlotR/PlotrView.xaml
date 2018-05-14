@@ -16,6 +16,10 @@
                 <Separator />
                 <MenuItem Header="_Exit" Command="{Binding ExitCommand}" ToolTip="Exit the application" />
             </MenuItem>
+            <MenuItem Header="_Plots">
+                <MenuItem Header="_Heatmap" Command="{Binding HeatmapCommand}" ToolTip="Display the Heatmap plot" />
+                <MenuItem Header="_Time Series" Command="{Binding TimeseriesCommand}" ToolTip="Display the Time series plot" />
+            </MenuItem>
         </Menu>
 
         <!--Slider-->

@@ -26,10 +26,9 @@ namespace PlotR
         /// Load the project to the plot.
         /// </summary>
         /// <param name="filePath">File Path to the project file.</param>
-        /// <param name="selectedPlotType">Selected Plot type.</param>
-        /// <param name="minIndex">Minimum index to display.</param>
-        /// <param name="maxIndex">Maximum index to display.</param>
-        void LoadProject(string fileName, PlotDataType selectedPlotType, int minIndex = 0, int maxIndex = 0);
+        /// <param name="minIndex">Minimum ensemble index to display.</param>
+        /// <param name="maxIndex">Minimum ensemble index to display.</param>
+        void LoadProject(string fileName, int minIndex = 0, int maxIndex = 0);
 
         /// <summary>
         /// Update the min and max ensembles selected.
@@ -42,5 +41,11 @@ namespace PlotR
         /// Update plot.
         /// </summary>
         void ReplotData();
+
+        /// <summary>
+        /// Replot the data based off the selected type.
+        /// </summary>
+        /// <param name="eplotDataType">Selected Plot type.</param>
+        void ReplotData(PlotDataType eplotDataType);
     }
 }

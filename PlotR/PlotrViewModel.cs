@@ -111,7 +111,12 @@ namespace PlotR
         /// <summary>
         /// Heatmap plot.
         /// </summary>
-        public HeatmapPlotViewModel Heatmap { get; set; }
+        public HeatmapPlotViewModel HeatmapPlot { get; set; }
+
+        /// <summary>
+        /// Time Series plot.
+        /// </summary>
+        public TimeSeriesViewModel TimeseriesPlot { get; set; }
 
         #endregion
 
@@ -129,6 +134,16 @@ namespace PlotR
         /// </summary>
         public ReactiveCommand<Unit, Unit> ExitCommand { get; private set; }
 
+        /// <summary>
+        /// View the Heatmap plot.
+        /// </summary>
+        public ReactiveCommand<Unit, Unit> HeatmapCommand { get; private set; }
+
+        /// <summary>
+        /// View the times series plot.
+        /// </summary>
+        public ReactiveCommand<Unit, Unit> TimeseriesCommand { get; private set; }
+
         #endregion
 
         /// <summary>
@@ -141,17 +156,24 @@ namespace PlotR
             CurrentMaxValue = 100;
             TotalEnsembles = 100;
 
-            // Create the Heatmap
-            Heatmap = IoC.Get<HeatmapPlotViewModel>();
-
-            // Display the plot
-            ActivateItem(IoC.Get<HeatmapPlotViewModel>());
+            // Create the plots
+            HeatmapPlot = new HeatmapPlotViewModel();       // Create VM
+            IoC.BuildUp(HeatmapPlot);                       // Add to the container
+            TimeseriesPlot = new TimeSeriesViewModel();     // Create VM
+            IoC.BuildUp(TimeseriesPlot);                    // Add to the container
 
             // Open file commands
             this.OpenCommand = ReactiveCommand.Create(() => OpenFile());
 
             // Exit command
             this.ExitCommand = ReactiveCommand.Create(() => System.Windows.Application.Current.Shutdown());
+
+            // Load the plots
+            this.HeatmapCommand = ReactiveCommand.Create(() => ActivateItem(HeatmapPlot));
+            this.TimeseriesCommand = ReactiveCommand.Create(() => ActivateItem(TimeseriesPlot));
+
+            // Display the plot
+            ActivateItem(HeatmapPlot);
         }
 
         #region Open File
@@ -240,9 +262,18 @@ namespace PlotR
         /// </summary>
         private void LoadPlots()
         {
-            if (Heatmap != null)
+            //foreach (var vm in IoC.GetAll<IPlotViewModel>())
+            //{
+            //    vm.LoadProject(FileName, _CurrentMinValue, _CurrentMaxValue);
+            //}
+
+            if (HeatmapPlot != null)
             {
-                Heatmap.LoadProject(FileName, PlotDataType.Magnitude, _CurrentMinValue, _CurrentMaxValue);     // Default use magnitude
+                HeatmapPlot.LoadProject(FileName, _CurrentMinValue, _CurrentMaxValue);
+            }
+            if (TimeseriesPlot != null)
+            {
+                TimeseriesPlot.LoadProject(FileName, _CurrentMinValue, _CurrentMaxValue);
             }
         }
 
@@ -251,9 +282,9 @@ namespace PlotR
         /// </summary>
         public async void UpdateEnsembleSelections()
         {
-            if (Heatmap != null)
+            if (HeatmapPlot != null)
             {
-                await Task.Run(() => Heatmap.ReplotData(_CurrentMinValue, _CurrentMaxValue));
+                await Task.Run(() => HeatmapPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
             }
         }
 
@@ -262,14 +293,14 @@ namespace PlotR
         /// </summary>
         public async void UpdateEnsembleSelections(int min, int max)
         {
-            if (Heatmap != null)
+            if (HeatmapPlot != null)
             {
                 _CurrentMinValue = min;
                 NotifyOfPropertyChange(() => CurrentMinValue);
                 _CurrentMaxValue = max;
                 NotifyOfPropertyChange(() => CurrentMaxValue);
 
-                await Task.Run(() => Heatmap.ReplotData(min, max));
+                await Task.Run(() => HeatmapPlot.ReplotData(min, max));
             }
         }
 
@@ -278,11 +309,11 @@ namespace PlotR
         /// </summary>
         public async void DisplayAll()
         {
-            if (Heatmap != null)
+            if (HeatmapPlot != null)
             {
                 CurrentMinValue = 1;
                 CurrentMaxValue = TotalEnsembles;
-                await Task.Run(() => Heatmap.ReplotData(_CurrentMinValue, _CurrentMaxValue));
+                await Task.Run(() => HeatmapPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
             }
         }
 

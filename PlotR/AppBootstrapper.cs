@@ -16,8 +16,10 @@ namespace PlotR {
             container.Singleton<IWindowManager, WindowManager>();
             container.Singleton<IEventAggregator, EventAggregator>();
             container.PerRequest<IShell, ShellViewModel>();
-            container.Singleton<HeatmapPlotViewModel, HeatmapPlotViewModel>();
             container.Singleton<PlotrViewModel, PlotrViewModel>();
+            container.Singleton<IPlotViewModel, HeatmapPlotViewModel>();
+            container.Singleton<IPlotViewModel, TimeSeriesViewModel>();
+
         }
 
         protected override object GetInstance(Type service, string key) {

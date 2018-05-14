@@ -5,4 +5,12 @@
     <!-- Converter used to convert from OxyPalette to SolidColorBrush -->
     <local:OxyPaletteToBrushConverter x:Key="OxyPaletteToBrushConverter" />
 
+    <!-- Converter used to convert from OxyColor to SolidColorBrush -->
+    <local:OxyColorToBrushConverter x:Key="OxyColorToBrushConverter" />
+
+    <!-- Template to display rectangles in the combobox -->
+    <DataTemplate x:Key="OxyColorComboBox" DataType="ComboBox">
+        <Rectangle Height="16" MinWidth="64" HorizontalAlignment="Center" Fill="{Binding Converter={StaticResource OxyColorToBrushConverter}}" Stroke="Black" Margin="0,1,0,1" />
+    </DataTemplate>
+
 </ResourceDictionary>

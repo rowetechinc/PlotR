@@ -65,6 +65,7 @@
                     <Label Content="Maximum Legend Value" />
                     <Controls:NumericUpDown Value="{Binding CurrentMaxValue}" ToolTip="Set the maixmum value in the color legend." />
                 </StackPanel>
+                <Controls:ToggleSwitch Header="Interpolate Data" IsChecked="{Binding IsInterpolate}" ToolTip="Interpolate the data.  This will merge cells to blend the ensembles." />
             </MenuItem>
         </Menu>
 

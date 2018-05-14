@@ -141,12 +141,19 @@
     <Compile Include="IPlotViewModel.cs" />
     <Compile Include="IShell.cs" />
     <Compile Include="MenuItemRti.cs" />
+    <Compile Include="OxyColorToBurshConverter.cs" />
     <Compile Include="OxyPaletteToBrushConverter.cs" />
     <Compile Include="PlotrView.xaml.cs">
       <DependentUpon>PlotrView.xaml</DependentUpon>
     </Compile>
     <Compile Include="PlotrViewModel.cs" />
+    <Compile Include="PlotViewModel.cs" />
     <Compile Include="ShellViewModel.cs" />
+    <Compile Include="TimeSeriesView.xaml.cs">
+      <DependentUpon>TimeSeriesView.xaml</DependentUpon>
+    </Compile>
+    <Compile Include="TimeSeriesViewModel.cs" />
+    <Compile Include="ViewResolvingPlotModel.cs" />
     <Page Include="Defaults.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
@@ -178,6 +185,10 @@
     <Page Include="ShellView.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
+    </Page>
+    <Page Include="TimeSeriesView.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
     </Page>
   </ItemGroup>
   <ItemGroup>
