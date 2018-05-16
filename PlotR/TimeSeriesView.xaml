@@ -39,23 +39,30 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <oxy:PlotView Grid.Column="0" Grid.Row="0" x:Name="timeseriesPlot" Model="{Binding Plot}"  />
+            <oxy:PlotView Grid.Column="0" Grid.Row="0" x:Name="timeseriesPlot" Model="{Binding Plot}" />
 
-            <Expander Grid.Column="1" Header="Options" ExpandDirection="Left">
-                <TabControl >
+            <Expander x:Name="Exapnder" Grid.Column="1" Header="Options" ExpandDirection="Left">
+                <TabControl>
                     <TabItem Header="Plot Type">
                         <StackPanel>
                             <TextBlock Text="Series List" FontWeight="Bold" FontSize="14"  Margin="0,5,5,5" />
-                            <ListBox ItemsSource="{Binding SeriesList}" SelectedValue="{Binding SelectedSeries}" Margin="5" ToolTip="Click on a series in the list to remove it from the plot.">
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate>
-                                        <DockPanel>
-                                            <Rectangle Height="16" MinWidth="64" HorizontalAlignment="Center" Fill="{Binding Color, Converter={StaticResource OxyColorToBrushConverter}}" Stroke="Black" Margin="0,1,0,1" DockPanel.Dock="Left" />
-                                            <TextBlock Text="{Binding }" Margin="5,0" />
-                                        </DockPanel>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
+                            <ListView ItemsSource="{Binding SeriesList}" SelectedValue="{Binding SelectedSeries}" Margin="5" ToolTip="Click on a series in the list to remove it from the plot.">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Color">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <Rectangle Height="16" MinWidth="32" HorizontalAlignment="Center" Fill="{Binding Color, Converter={StaticResource OxyColorToBrushConverter}}" Stroke="Black" Margin="0,1,0,1" DockPanel.Dock="Left" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Type" DisplayMemberBinding="{Binding PlotType}" />
+                                        <GridViewColumn Header="Bin" DisplayMemberBinding="{Binding Bin}" />
+                                        <GridViewColumn Header="Beam" DisplayMemberBinding="{Binding Beam}" />
+                                        <GridViewColumn Header="Number Ensembles" DisplayMemberBinding="{Binding NumEnsembles}" />
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
                             <Button Content="Remove" Grid.Row="1" Grid.Column="4" Margin="5" Command="{Binding RemoveSeriesCommand}" ToolTip="Remove the selected series from the plot." />
 
                             <Separator />
@@ -90,29 +97,47 @@
                         </StackPanel>
                     </TabItem>
                     <TabItem Header="Selected Files">
-                        <ListBox ItemsSource="{Binding ProjectFileList}" SelectedItem="{Binding SelectedProjectFile}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <DockPanel Margin="2">
-                                        <CheckBox IsChecked="{Binding IsChecked}" Command="{Binding Command}" DockPanel.Dock="Left" />
-                                        <TextBlock Text="{Binding Header}" VerticalAlignment="Center" />
-                                    </DockPanel>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
+                        <ListView ItemsSource="{Binding ProjectFileList}" SelectedItem="{Binding SelectedProjectFile}">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Selected">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsChecked}" Command="{Binding Command}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="File Name" DisplayMemberBinding="{Binding FileName}"  />
+                                    <GridViewColumn Header="Number Ensembles" DisplayMemberBinding="{Binding NumEnsembles}"  />
+                                    <GridViewColumn Header="First Date" DisplayMemberBinding="{Binding MinDateTime}"  />
+                                    <GridViewColumn Header="Last Date" DisplayMemberBinding="{Binding MaxDateTime}" />
+                                </GridView>
+                            </ListView.View>
 
-                        </ListBox>
+                        </ListView>
                     </TabItem>
                     <TabItem Header="Subsystem Config">
                         <ListView ItemsSource="{Binding SubsystemConfigList}">
-                            <ListBox.ItemTemplate>
-                                <DataTemplate>
-                                    <DockPanel Margin="2">
-                                        <CheckBox IsChecked="{Binding IsChecked}" Command="{Binding Command}" DockPanel.Dock="Left" />
-                                        <TextBlock Text="{Binding Header}" VerticalAlignment="Center" />
-                                    </DockPanel>
-                                </DataTemplate>
-                            </ListBox.ItemTemplate>
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Selected">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsChecked}" Command="{Binding Command}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="Subsystem" DisplayMemberBinding="{Binding Subsystem}" />
+                                    <GridViewColumn Header="Index" DisplayMemberBinding="{Binding CepoIndex}" />
+                                    <GridViewColumn Header="Desc" DisplayMemberBinding="{Binding Desc}" />
+                                </GridView>
+                            </ListView.View>
                         </ListView>
+                    </TabItem>
+                    <TabItem Header="Plot Options">
+                        <StackPanel>
+                            <Controls:ToggleSwitch Header="Filter Data" IsChecked="{Binding IsFilterData}" HorizontalAlignment="Left" ToolTip="Filter the data.  If turned on, this will not plot Bad data." />
+                        </StackPanel>
                     </TabItem>
                 </TabControl>
 

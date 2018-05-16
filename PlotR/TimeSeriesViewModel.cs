@@ -1,4 +1,5 @@
-﻿using Microsoft.Win32;
+﻿using Caliburn.Micro;
+using Microsoft.Win32;
 using Newtonsoft.Json.Linq;
 using OxyPlot;
 using OxyPlot.Axes;
@@ -6,6 +7,7 @@ using OxyPlot.Series;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Data.Common;
 using System.Data.SQLite;
@@ -25,24 +27,77 @@ namespace PlotR
         /// <summary>
         /// Info on a series.
         /// </summary>
-        public class SeriesInfo
+        public class SeriesInfo : PropertyChangedBase
         {
             public PlotDataType PlotType { get; set; }
 
             /// <summary>
             /// Color of the line.
             /// </summary>
-            public OxyColor Color { get; set; }
+            private OxyColor _Color;
+            /// <summary>
+            /// Color of the line.
+            /// </summary>
+            public OxyColor Color
+            {
+                get { return _Color; }
+                set
+                {
+                    _Color = value;
+                    NotifyOfPropertyChange(() => Color);
+                }
+            }
 
             /// <summary>
             /// Beam number of the line.
             /// </summary>
-            public int Beam { get; set; }
+            private int _Beam;
+            /// <summary>
+            /// Beam number of the line.
+            /// </summary>
+            public int Beam
+            {
+                get { return _Beam; }
+                set
+                {
+                    _Beam = value;
+                    NotifyOfPropertyChange(() => Beam);
+                }
+            }
 
             /// <summary>
             /// Bin number of ht line
             /// </summary>
-            public int Bin { get; set; }
+            private int _Bin;
+            /// <summary>
+            /// Bin number of ht line
+            /// </summary>
+            public int Bin
+            {
+                get { return _Bin; }
+                set
+                {
+                    _Bin = value;
+                    NotifyOfPropertyChange(() => Bin);
+                }
+            }
+
+            /// <summary>
+            /// Number of ensembles in the series.
+            /// </summary>
+            private int _NumEnsembles;
+            /// <summary>
+            /// Number of ensembles in the series.
+            /// </summary>
+            public int NumEnsembles
+            {
+                get { return _NumEnsembles; }
+                set
+                {
+                    _NumEnsembles = value;
+                    NotifyOfPropertyChange(() => NumEnsembles);
+                }
+            }
 
             /// <summary>
             /// Initialize.
@@ -53,8 +108,13 @@ namespace PlotR
                 Color = OxyColors.YellowGreen;
                 Beam = 0;
                 Bin = 0;
+                NumEnsembles = 0;
             }
 
+            /// <summary>
+            /// Set the To String.
+            /// </summary>
+            /// <returns></returns>
             public override string ToString()
             {
                 return String.Format("{0} Bin:{1} Beam:{2}", PlotType, Bin, Beam);
@@ -97,7 +157,7 @@ namespace PlotR
         /// <summary>
         /// List of series displayed.
         /// </summary>
-        public BindingList<SeriesInfo> SeriesList { get; set; }
+        public ObservableCollection<SeriesInfo> SeriesList { get; set; }
 
         /// <summary>
         /// Series Data to remove.
@@ -123,29 +183,29 @@ namespace PlotR
         /// <summary>
         /// List of available plot types.
         /// </summary>
-        public BindingList<PlotDataType> PlotTypeList { get; set; }
+        public ObservableCollection<PlotDataType> PlotTypeList { get; set; }
 
-        ///// <summary>
-        ///// Selected plot type.
-        ///// </summary>
-        //private PlotDataType _SelectedPlotType;
-        ///// <summary>
-        ///// Selected plot type.
-        ///// </summary>
-        //public PlotDataType SelectedPlotType
-        //{
-        //    get { return _SelectedPlotType; }
-        //    set
-        //    {
-        //        _SelectedPlotType = value;
-        //        NotifyOfPropertyChange(() => SelectedPlotType);
-        //    }
-        //}
+        /// <summary>
+        /// Selected plot type.
+        /// </summary>
+        private PlotDataType _SelectedPlotType;
+        /// <summary>
+        /// Selected plot type.
+        /// </summary>
+        public PlotDataType SelectedPlotType
+        {
+            get { return _SelectedPlotType; }
+            set
+            {
+                _SelectedPlotType = value;
+                NotifyOfPropertyChange(() => SelectedPlotType);
+            }
+        }
 
         /// <summary>
         /// List of colors.
         /// </summary>
-        public BindingList<OxyColor> SeriesColorList { get; set; }
+        public ObservableCollection<OxyColor> SeriesColorList { get; set; }
 
         /// <summary>
         /// Selected series color.
@@ -229,23 +289,12 @@ namespace PlotR
             SelectedBeam = 0;
             SelectedBin = 0;
 
-            // Selected Plot Type
-            //PlotTypeList = Enum.GetValues(typeof(PlotDataType)).Cast<PlotDataType>().ToList();
-            SelectedPlotType = PlotDataType.Magnitude;
-            IsMagnitude = true;
-
-            // Status
-            StatusMsg = "Open a DB file...";
-            StatusProgress = 0;
-            StatusProgressMax = 100;
-
             // Add a base set of data to the time series
             SetupLists();
 
-            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 0, Color = OxyColors.DarkGoldenrod });
-            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 1, Color = OxyColors.Beige });
-            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 2, Color = OxyColors.BlueViolet });
-            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 3, Color = OxyColors.DarkSlateBlue });
+            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 0, Color = OxyColors.Red });
+            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 1, Color = OxyColors.Green });
+            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 2, Color = OxyColors.Blue });
 
             // Add Series Command commands
             this.AddSeriesCommand = ReactiveCommand.Create(() => AddSeries());
@@ -261,15 +310,15 @@ namespace PlotR
         /// </summary>
         private void SetupLists()
         {
-            PlotTypeList = new BindingList<PlotDataType>();
+            PlotTypeList = new ObservableCollection<PlotDataType>();
             foreach(PlotDataType plotType in Enum.GetValues(typeof(PlotDataType)))
             {
                 PlotTypeList.Add(plotType);
             }
 
-            SeriesList = new BindingList<SeriesInfo>();
+            SeriesList = new ObservableCollection<SeriesInfo>();
 
-            SeriesColorList = new BindingList<OxyColor>();
+            SeriesColorList = new ObservableCollection<OxyColor>();
             SeriesColorList.Add(OxyColors.AliceBlue);
             SeriesColorList.Add(OxyColors.AntiqueWhite);
             SeriesColorList.Add(OxyColors.Aqua);
@@ -474,11 +523,11 @@ namespace PlotR
 
         #region Create Plot
 
-            /// <summary>
-            /// Create the plot.
-            /// </summary>
-            /// <returns></returns>
-            private ViewResolvingPlotModel CreatePlot()
+        /// <summary>
+        /// Create the plot.
+        /// </summary>
+        /// <returns></returns>
+        private ViewResolvingPlotModel CreatePlot()
         {
             ViewResolvingPlotModel temp = new ViewResolvingPlotModel();
 
@@ -488,7 +537,7 @@ namespace PlotR
 
             //temp.TitleFontSize = 10.667;
 
-            //temp.Background = OxyColors.Black;
+            //temp.Background = OxyColor.FromArgb(0x7F, 0xF0, 0xF8, 0xFF);
             //temp.TextColor = OxyColors.White;
             //temp.PlotAreaBorderColor = OxyColors.White;
 
@@ -499,7 +548,7 @@ namespace PlotR
             temp.LegendOrientation = LegendOrientation.Vertical;
             //temp.LegendSymbolPlacement = LegendSymbolPlacement.Right;
             //temp.LegendFontSize = 8;   // 10
-                                       //temp.LegendItemSpacing = 8;
+            //temp.LegendItemSpacing = 8;
 
             // Setup the axis
             temp.Axes.Add(new LinearAxis
@@ -533,14 +582,11 @@ namespace PlotR
         /// Draw the plot based off the settings.
         /// </summary>
         /// <param name="fileName">File name of the project.</param>
-        /// <param name="seriesData">Series Data and Info.</param>
+        /// <param name="seriesInfo">Series Info.</param>
         /// <param name="minIndex">Minimum ensemble index to draw.</param>
         /// <param name="maxIndex">Maximum ensemble index to draw.</param>
-        protected async void DrawPlot(string fileName, SeriesData seriesData, int minIndex = 0, int maxIndex = 0)
+        protected void DrawPlot(string fileName, SeriesInfo seriesInfo, int minIndex = 0, int maxIndex = 0)
         {
-            // Data to get from the project
-            SeriesData data = null;
-
             // Verify a file was given
             if (!string.IsNullOrEmpty(fileName))
             {
@@ -559,7 +605,7 @@ namespace PlotR
                             sqlite_conn.Open();
 
                             // Get total number of ensembles in the project
-                            await Task.Run(() => TotalNumEnsembles = GetNumEnsembles(sqlite_conn));
+                            TotalNumEnsembles = GetNumEnsembles(sqlite_conn);
 
                             // If this is the first time loading
                             // show the entire plot
@@ -570,8 +616,28 @@ namespace PlotR
                                 maxIndex = TotalNumEnsembles;
                             }
 
-                            // Get the data
-                            await Task.Run(() => data = GetData(sqlite_conn, seriesData, minIndex, maxIndex));
+                            // Get the data from the project
+                            SeriesData data = null;
+                            data = GetData(sqlite_conn, seriesInfo, minIndex, maxIndex);
+
+                            // Update the series list with the number of ensembles
+                            seriesInfo.NumEnsembles = data.Data.Count;
+                            //NotifyOfPropertyChange(() => SeriesList);
+
+                            // If there is no data, do not plot
+
+                            if (data != null)
+                            {
+                                // Update status
+                                StatusMsg = "Drawing Plot";
+
+                                // Plot the data from the project
+                                PlotSeriesData(data);
+                            }
+                            else
+                            {
+                                StatusMsg = "No data to plot";
+                            }
 
                             // Close connection
                             sqlite_conn.Close();
@@ -586,23 +652,6 @@ namespace PlotR
                     {
                         Debug.WriteLine("Error using database", e);
                         return;
-                    }
-
-                    // If there is no data, do not plot
-                    if (data != null)
-                    {
-                        // Update status
-                        StatusMsg = "Drawing Plot";
-
-                        // Plot the Profile data from the project
-                        await Task.Run(() => PlotSeriesData(data));
-
-                        // Reset the axis to set the meters axis
-                        await Task.Run(() => Plot.ResetAllAxes());
-                    }
-                    else
-                    {
-                        StatusMsg = "No data to plot";
                     }
                 }
             }
@@ -652,17 +701,12 @@ namespace PlotR
 
         #region Replot Data
 
-        public override void ReplotData(PlotDataType eplotDataType)
-        {
-
-        }
-
         /// <summary>
         /// Implement reploting the data.
         /// </summary>
         /// <param name="minIndex">Minimum Index.</param>
         /// <param name="maxIndex">Maximum Index.</param>
-        public async override void ReplotData(int minIndex, int maxIndex)
+        public override void ReplotData(int minIndex, int maxIndex)
         {
             // Clear the plot
             lock (Plot.SyncRoot)
@@ -675,15 +719,11 @@ namespace PlotR
             // Plot the data
             foreach (SeriesInfo seriesInfo in SeriesList)
             {
-                // Create the series data
-                SeriesData seriesData = new SeriesData();
-                seriesData.Info = seriesInfo;
-
                 // Replot the data
                 if (!string.IsNullOrEmpty(ProjectFilePath))
                 {
                     // Draw the line series
-                    await Task.Run(() => DrawPlot(ProjectFilePath, seriesData, minIndex, maxIndex));
+                    Task.Run(() => DrawPlot(ProjectFilePath, seriesInfo, minIndex, maxIndex));
                 }
             }
         }
@@ -706,32 +746,32 @@ namespace PlotR
         /// </summary>
         /// <param name="ePlotDataType">Selected data type.</param>
         /// <param name="cnn">SQLite connection.</param>
-        /// <param name="seriesData">Series Data and Info.</param>
+        /// <param name="seriesInfo">Series Info.</param>
         /// <param name="minIndex">Minimum Ensemble index.</param>
         /// <param name="maxIndex">Maximum Ensemble index.</param>
         /// <returns>The selected for each ensemble and bin.</returns>
-        private SeriesData GetData(SQLiteConnection cnn, SeriesData seriesData, int minIndex = 0, int maxIndex = 0)
+        private SeriesData GetData(SQLiteConnection cnn, SeriesInfo seriesInfo, int minIndex = 0, int maxIndex = 0)
         {
-            StatusProgressMax = TotalNumEnsembles;
+            //StatusProgressMax = TotalNumEnsembles;
             StatusProgress = 0;
 
             // Get the data to plot
-            return QueryDataFromDb(cnn, seriesData, minIndex, maxIndex);
+            return QueryDataFromDb(cnn, seriesInfo, minIndex, maxIndex);
         }
 
         /// <summary>
         /// Query the project database for the data to plot.
         /// </summary>
         /// <param name="cnn">SQLite connection.</param>
-        /// <param name="seriesData">Series Data and Info.</param>
+        /// <param name="seriesInfo">Series Info.</param>
         /// <param name="minIndex">Minimum index.</param>
         /// <param name="maxIndex">Maximum index.</param>
         /// <returns></returns>
-        private SeriesData QueryDataFromDb(SQLiteConnection cnn, SeriesData seriesData, int minIndex = 0, int maxIndex = 0)
+        private SeriesData QueryDataFromDb(SQLiteConnection cnn, SeriesInfo seriesInfo, int minIndex = 0, int maxIndex = 0)
         {
             // Get the dataset column name
             string datasetColumnName = "EarthVelocityDS";
-            switch (seriesData.Info.PlotType)
+            switch (seriesInfo.PlotType)
             {
                 case PlotDataType.Magnitude:
                     datasetColumnName = "EarthVelocityDS";          // Velocity vectors from Earth Velocity
@@ -759,9 +799,6 @@ namespace PlotR
             LimitOffset lo = CalcLimitOffset(numEnsembles, minIndex, maxIndex);
             numEnsembles = lo.Limit;
 
-            // Update the progress bar
-            StatusProgressMax = numEnsembles;
-
             // Get data
             string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE ({1} IS NOT NULL) {2} {3} LIMIT {4} OFFSET {5};",
                                             datasetColumnName,
@@ -772,7 +809,7 @@ namespace PlotR
                                             lo.Offset);
 
             // Return the data to plot
-            return GetDataFromDb(cnn, numEnsembles, query, seriesData);
+            return GetDataFromDb(cnn, numEnsembles, query, seriesInfo);
         }
 
         /// <summary>
@@ -781,12 +818,16 @@ namespace PlotR
         /// <param name="cnn">Database connection.</param>
         /// <param name="numEnsembles">Number of ensembles.</param>
         /// <param name="query">Query string to retreive the data.</param>
-        /// <param name="seriesData">Series Data and Info.</param>
+        /// <param name="seriesInfo">Series Info.</param>
         /// <returns>Magnitude data in (NumEns X NumBin) format.</returns>
-        private SeriesData GetDataFromDb(SQLiteConnection cnn, int numEnsembles, string query, SeriesData seriesData)
+        private SeriesData GetDataFromDb(SQLiteConnection cnn, int numEnsembles, string query, SeriesInfo seriesInfo)
         {
             // Init list
             int ensIndex = 0;
+
+            // Init the new series data
+            SeriesData seriesData = new SeriesData();
+            seriesData.Info = seriesInfo;
 
             // Ensure a connection was made
             if (cnn == null)
@@ -807,6 +848,7 @@ namespace PlotR
                     // Update the status
                     StatusProgress++;
                     StatusMsg = reader["EnsembleNum"].ToString();
+                    //Debug.WriteLine(string.Format("{0} {1}", StatusProgress, StatusProgressMax));
 
                     // Verify there is more data available
                     if (reader == null)
@@ -822,7 +864,7 @@ namespace PlotR
 
                     // Parse the data from the db
                     // This will be select which type of data to plot
-                    double data = ParseData(reader, seriesData);
+                    double data = ParseData(reader, seriesInfo);
 
                     // If the array has not be created, created now
                     if (seriesData.Data == null)
@@ -832,7 +874,25 @@ namespace PlotR
                         seriesData.Data = new List<DataPoint>();
                     }
 
-                    seriesData.Data.Add(new DataPoint(ensIndex, data));
+                    // Set the data to the series
+                    if (!_IsFilterData)
+                    {
+                        // If not filter, add all the data
+                        seriesData.Data.Add(new DataPoint(ensIndex, data));
+                    }
+                    else
+                    {
+                        // If filtering, add only good data
+                        // Data rounded because not exactly to 3 decimal places
+                        if(Math.Round(data, 3) != BAD_VELOCITY)
+                        {
+                            seriesData.Data.Add(new DataPoint(ensIndex, data));
+                        }
+                        else
+                        {
+                            Debug.WriteLine(string.Format("BadData {0}", data));
+                        }
+                    }
 
                     ensIndex++;
                 }
@@ -849,18 +909,18 @@ namespace PlotR
         /// Select which parser to use based off the selected plot.
         /// </summary>
         /// <param name="reader">Reader holds a single row (ensemble).</param>
-        /// <param name="seriesData">Series Data and Info.</param>
+        /// <param name="seriesInfo">Series Info.</param>
         /// <returns>Data selected for the row.</returns>
-        private double ParseData(DbDataReader reader, SeriesData seriesData)
+        private double ParseData(DbDataReader reader, SeriesInfo seriesInfo)
         {
-            switch (seriesData.Info.PlotType)
+            switch (seriesInfo.PlotType)
             {
                 case PlotDataType.Magnitude:
-                    return ParseMagData(reader, seriesData.Info.Bin);
+                    return ParseMagData(reader, seriesInfo.Bin);
                 case PlotDataType.Direction:
-                    return ParseDirData(reader, seriesData.Info.Bin);
+                    return ParseDirData(reader, seriesInfo.Bin);
                 case PlotDataType.Amplitude:
-                    return ParseAmpData(reader, seriesData.Info.Bin, seriesData.Info.Beam);
+                    return ParseAmpData(reader, seriesInfo.Bin, seriesInfo.Beam);
                 default:
                     return 0.0;
             }

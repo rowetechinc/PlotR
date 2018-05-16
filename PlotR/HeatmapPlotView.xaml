@@ -27,7 +27,7 @@
             <MenuItem Header="_Selected Files" ItemsSource="{Binding ProjectFileList}">
                 <MenuItem.Resources>
                     <Style TargetType="MenuItem">
-                        <Setter Property="Header" Value="{Binding Header}" />
+                        <Setter Property="Header" Value="{Binding FileName}" />
                         <Setter Property="IsCheckable" Value="{Binding IsCheckable}" />
                         <Setter Property="IsChecked" Value="{Binding IsChecked}" />
                         <Setter Property="Command" Value="{Binding Command}" />
@@ -38,7 +38,7 @@
             <MenuItem Header="_Subsystem Config" ItemsSource="{Binding SubsystemConfigList}">
                 <MenuItem.Resources>
                     <Style TargetType="MenuItem">
-                        <Setter Property="Header" Value="{Binding Header}" />
+                        <Setter Property="Header" Value="{Binding Desc}" />
                         <Setter Property="IsCheckable" Value="{Binding IsCheckable}" />
                         <Setter Property="IsChecked" Value="{Binding IsChecked}" />
                         <Setter Property="Command" Value="{Binding Command}" />

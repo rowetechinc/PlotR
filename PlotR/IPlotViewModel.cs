@@ -41,11 +41,5 @@ namespace PlotR
         /// Update plot.
         /// </summary>
         void ReplotData();
-
-        /// <summary>
-        /// Replot the data based off the selected type.
-        /// </summary>
-        /// <param name="eplotDataType">Selected Plot type.</param>
-        void ReplotData(PlotDataType eplotDataType);
     }
 }

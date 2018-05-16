@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace PlotR
 {
@@ -56,7 +57,7 @@ namespace PlotR
 
         #endregion
 
-        #region Sturct
+        #region Sturct and Class
 
         /// <summary>
         /// Limit and offset value.
@@ -72,6 +73,161 @@ namespace PlotR
             /// Offset is the start location.
             /// </summary>
             public int Offset { get; set; }
+        }
+
+        /// <summary>
+        /// File Entry in the project.
+        /// </summary>
+        public class FileEntry
+        {
+            /// <summary>
+            /// Header name.
+            /// </summary>
+            public string FileName { get; set; }
+
+            /// <summary>
+            /// Set if this menu item is checkable.
+            /// </summary>
+            public bool IsCheckable { get; set; }
+
+            /// <summary>
+            /// Set if the menu is checked or not.
+            /// </summary>
+            public bool IsChecked { get; set; }
+
+            /// <summary>
+            /// Minimum date time.
+            /// </summary>
+            public DateTime MinDateTime { get; set; }
+
+            /// <summary>
+            /// Maximum date time.
+            /// </summary>
+            public DateTime MaxDateTime { get; set; }
+
+            /// <summary>
+            /// Number of ensembles.
+            /// </summary>
+            public int NumEnsembles { get; set; }
+
+            /// <summary>
+            /// Command.
+            /// </summary>
+            public ICommand Command { get; set; }
+
+            /// <summary>
+            /// Initialize value.
+            /// </summary>
+            public FileEntry()
+            {
+                FileName = "";
+                MinDateTime = DateTime.Now;
+                MaxDateTime = DateTime.Now;
+                NumEnsembles = 0;
+                IsCheckable = false;
+                IsChecked = false;
+            }
+        }
+
+        /// <summary>
+        /// Subsystem Entry in the project.
+        /// </summary>
+        public class SubsystemEntry
+        {
+            /// <summary>
+            /// Subsystem frequency.
+            /// </summary>
+            public string Subsystem { get; set; }
+
+            /// <summary>
+            /// CEPO index.
+            /// </summary>
+            public string CepoIndex { get; set; }
+
+            /// <summary>
+            /// Frequency description.
+            /// </summary>
+            public string Desc
+            {
+                get
+                {
+                    return GetDesc();
+                }
+            }
+
+            /// <summary>
+            /// Set if this menu item is checkable.
+            /// </summary>
+            public bool IsCheckable { get; set; }
+
+            /// <summary>
+            /// Set if the menu is checked or not.
+            /// </summary>
+            public bool IsChecked { get; set; }
+
+            /// <summary>
+            /// Number of ensembles.
+            /// </summary>
+            public int NumEnsembles { get; set; }
+
+            /// <summary>
+            /// Command.
+            /// </summary>
+            public ICommand Command { get; set; }
+
+            /// <summary>
+            /// Initialize value.
+            /// </summary>
+            public SubsystemEntry()
+            {
+                Subsystem = "";
+                CepoIndex = "";
+                NumEnsembles = 0;
+                IsCheckable = false;
+                IsChecked = false;
+            }
+
+            private string GetDesc()
+            {
+                string desc = "";
+
+                switch(Subsystem)
+                {
+                    case "2":
+                        return "1.2 MHz 4 beam 20 degree piston";
+                    case "3":
+                        return "600 kHz 4 beam 20 degree piston";
+                    case "4":
+                        return "300 kHz 4 beam 20 degree piston";
+                    case "5":
+                        return "2 MHz 4 beam 20 degree piston, 45 degree heading offset";
+                    case "6":
+                        return "1.2 MHz 4 beam 20 degree piston, 45 degree heading offset";
+                    case "7":
+                        return "600 kHz 4 beam 20 degree piston, 45 degree heading offset";
+                    case "8":
+                        return "300 kHz 4 beam 20 degree piston, 45 degree heading offset";
+                    case "9":
+                        return "2 MHz vertical beam piston";
+                    case "A":
+                        return "1.2 MHz vertical beam piston";
+                    case "B":
+                        return "600 kHz vertical beam piston";
+                    case "C":
+                        return "300 kHz vertical beam piston";
+                    case "D":
+                        return "150 kHz 4 beam 20 degree piston";
+                    case "E":
+                        return "75 kHz 4 beam 20 degree piston";
+                    case "F":
+                        return "38 kHz 4 beam 20 degree piston";
+                    case "G":
+                        return "20 kHz 4 beam 20 degree piston";
+                }
+
+
+                return desc;
+            }
         }
 
         #endregion
@@ -96,99 +252,6 @@ namespace PlotR
             {
                 _plot = value;
                 this.NotifyOfPropertyChange(() => this.Plot);
-            }
-        }
-
-        #endregion
-
-        #region Plot Types
-
-        /// <summary>
-        /// Selected Plot type.
-        /// </summary>
-        protected PlotDataType _SelectedPlotType;
-        /// <summary>
-        /// Selected Plot type.
-        /// </summary>
-        public PlotDataType SelectedPlotType
-        {
-            get { return _SelectedPlotType; }
-            set
-            {
-                _SelectedPlotType = value;
-                NotifyOfPropertyChange(() => SelectedPlotType);
-
-                // Replot data
-                ReplotData(_SelectedPlotType);
-            }
-        }
-
-        /// <summary>
-        /// Magnitude Plot Selected.
-        /// </summary>
-        protected bool _IsMagnitude;
-        /// <summary>
-        /// Magnitude Plot Selected.
-        /// </summary>
-        public bool IsMagnitude
-        {
-            get { return _IsMagnitude; }
-            set
-            {
-                _IsMagnitude = value;
-                NotifyOfPropertyChange(() => IsMagnitude);
-
-                if (value)
-                {
-                    // Replot data
-                    ReplotData(PlotDataType.Magnitude);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Water Direction Plot Selected.
-        /// </summary>
-        protected bool _IsDirection;
-        /// <summary>
-        /// Water Direction Plot Selected.
-        /// </summary>
-        public bool IsDirection
-        {
-            get { return _IsDirection; }
-            set
-            {
-                _IsDirection = value;
-                NotifyOfPropertyChange(() => IsDirection);
-
-                if (value)
-                {
-                    // Replot data
-                    ReplotData(PlotDataType.Direction);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Amplitude Plot Selected.
-        /// </summary>
-        protected bool _IsAmplitude;
-        /// <summary>
-        /// Amplitude Plot Selected.
-        /// </summary>
-        public bool IsAmplitude
-        {
-            get { return _IsAmplitude; }
-            set
-            {
-                _IsAmplitude = value;
-                NotifyOfPropertyChange(() => IsAmplitude);
-
-                if (value)
-                {
-                    // Replot data
-                    ReplotData(PlotDataType.Amplitude);
-                }
             }
         }
 
@@ -286,12 +349,33 @@ namespace PlotR
         /// <summary>
         /// List of all the files in the project.
         /// </summary>
-        public BindingList<MenuItemRti> ProjectFileList { get; set; }
+        public BindingList<FileEntry> ProjectFileList { get; set; }
 
         /// <summary>
         /// List of all the Subsystem configurations.
         /// </summary>
-        public BindingList<MenuItemRtiSubsystem> SubsystemConfigList { get; set; }
+        public BindingList<SubsystemEntry> SubsystemConfigList { get; set; }
+
+        #endregion
+
+        #region Filter Data
+
+        /// <summary>
+        /// Filter the data for bad values.
+        /// </summary>
+        protected bool _IsFilterData;
+        /// <summary>
+        /// Filter the data for bad values.
+        /// </summary>
+        public bool IsFilterData
+        {
+            get { return _IsFilterData; }
+            set
+            {
+                _IsFilterData = value;
+                NotifyOfPropertyChange(() => IsFilterData);
+            }
+        }
 
         #endregion
 
@@ -328,10 +412,11 @@ namespace PlotR
             StatusMsg = "Open a DB file...";
             StatusProgress = 0;
             StatusProgressMax = 100;
+            IsFilterData = true;
 
             // List of project files and subsystem
-            ProjectFileList = new BindingList<MenuItemRti>();
-            SubsystemConfigList = new BindingList<MenuItemRtiSubsystem>();
+            ProjectFileList = new BindingList<FileEntry>();
+            SubsystemConfigList = new BindingList<SubsystemEntry>();
 
             // Setup commands
             this.OpenCommand = ReactiveCommand.Create(() => OpenFile());
@@ -434,8 +519,18 @@ namespace PlotR
                                 break;
                             }
 
+                            // Create a file entry
+                            FileEntry fe = new FileEntry() { FileName = reader["FileName"].ToString(), IsCheckable = true, IsChecked = true, Command = FileSelectionCommand };
+
+                            // Get the number of ensembles for the file
+                            fe.NumEnsembles = GetNumEnsemblesPerFile(cnn, fe.FileName);
+
+                            // Get the first and last date
+                            fe.MinDateTime = GetFirstDateTimePerFile(cnn, fe.FileName);
+                            fe.MaxDateTime = GetLastDateTimePerFile(cnn, fe.FileName);
+
                             // Add file name to list
-                            ProjectFileList.Add(new MenuItemRti() { Header = reader["FileName"].ToString(), IsCheckable = true, IsChecked = true, Command = FileSelectionCommand });
+                            ProjectFileList.Add(fe);
                         }
 
                     }
@@ -451,6 +546,69 @@ namespace PlotR
                 Debug.WriteLine("Error using database to get file names", e);
                 return;
             }
+        }
+
+        /// <summary>
+        /// Get the number of ensemble in the file.
+        /// </summary>
+        /// <param name="cnn">SQLite connection.</param>
+        /// <param name="fileName">File name to get the number of ensembles.</param>
+        /// <returns>Number of ensembles in the file.</returns>
+        protected int GetNumEnsemblesPerFile(SQLiteConnection cnn, string fileName)
+        {
+            // Init value
+            int count = 0; 
+
+            // Create a command to query
+            using (DbCommand cmd = cnn.CreateCommand())
+            {
+                string query = string.Format("SELECT COUNT(*) FROM {0} WHERE FileName='{1}';", "tblEnsemble", fileName);
+                cmd.CommandText = query;
+
+                // Get Result
+                object resultValue = cmd.ExecuteScalar();
+                count = Convert.ToInt32(resultValue.ToString());
+            }
+
+            return count;
+        }
+
+        protected DateTime GetFirstDateTimePerFile(SQLiteConnection cnn, string fileName)
+        {
+            // Init value
+            DateTime dt = DateTime.Now;
+
+            // Create a command to query
+            using (DbCommand cmd = cnn.CreateCommand())
+            {
+                string query = string.Format("SELECT DateTime FROM {0} WHERE FileName='{1}' LIMIT 1;", "tblEnsemble", fileName);
+                cmd.CommandText = query;
+
+                // Get Result
+                object resultValue = cmd.ExecuteScalar();
+                dt = Convert.ToDateTime(resultValue.ToString());
+            }
+
+            return dt;
+        }
+
+        protected DateTime GetLastDateTimePerFile(SQLiteConnection cnn, string fileName)
+        {
+            // Init value
+            DateTime dt = DateTime.Now;
+
+            // Create a command to query
+            using (DbCommand cmd = cnn.CreateCommand())
+            {
+                string query = string.Format("SELECT DateTime FROM {0} WHERE FileName='{1}' ORDER BY DateTime DESC LIMIT 1;", "tblEnsemble", fileName);       // Descending
+                cmd.CommandText = query;
+
+                // Get Result
+                object resultValue = cmd.ExecuteScalar();
+                dt = Convert.ToDateTime(resultValue.ToString());
+            }
+
+            return dt;
         }
 
         /// <summary>
@@ -471,7 +629,7 @@ namespace PlotR
                 // If checked, add to list
                 if (item.IsChecked)
                 {
-                    sb.Append(string.Format("'{0}',", item.Header));
+                    sb.Append(string.Format("'{0}',", item.FileName));
                 }
             }
 
@@ -546,7 +704,7 @@ namespace PlotR
                             string result = string.Format("[{0}]-{1}", subsystem, cepoIndex);
 
                             // Add file name to list
-                            SubsystemConfigList.Add(new MenuItemRtiSubsystem() { Header = result, IsCheckable = true, IsChecked = true, Command = SubsystemSelectionCommand, Subsystem = subsystem, CepoIndex = cepoIndex });
+                            SubsystemConfigList.Add(new SubsystemEntry() { IsCheckable = true, IsChecked = true, Command = SubsystemSelectionCommand, Subsystem = subsystem, CepoIndex = cepoIndex });
                         }
                     }
                 }
@@ -726,16 +884,6 @@ namespace PlotR
         }
 
         #endregion
-
-        /// <summary>
-        /// Replot the data when settings change.  
-        /// Implement this method for each plot.
-        /// </summary>
-        /// <param name="eplotDataType">Plot type.</param>
-        public virtual void ReplotData(PlotDataType eplotDataType)
-        {
-            throw new NotImplementedException();
-        }
 
         /// <summary>
         /// Implement reploting the data.

@@ -206,7 +206,7 @@ namespace PlotR
         /// Load the project to display the plot.
         /// </summary>
         /// <param name="fileName">File name of the project.</param>
-        private async void LoadProject(string fileName)
+        private void LoadProject(string fileName)
         {
             // Verify a file was given
             if (!string.IsNullOrEmpty(fileName))
@@ -226,14 +226,11 @@ namespace PlotR
                             sqlite_conn.Open();
 
                             // Get total number of ensembles in the project
-                            await Task.Run(() => TotalEnsembles = GetNumEnsembles(sqlite_conn));
+                            TotalEnsembles = GetNumEnsembles(sqlite_conn);
 
                             // Reset the min and max
                             CurrentMinValue = 1;
                             CurrentMaxValue = TotalEnsembles;
-
-                            // Get the magnitude data
-                            //await Task.Run(() => data = GetData(sqlite_conn, TotalNumEnsembles, selectedPlotType));
 
                             // Close connection
                             sqlite_conn.Close();

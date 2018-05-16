@@ -113,6 +113,99 @@ namespace PlotR
 
         #region Properties
 
+        #region Plot Types
+
+        /// <summary>
+        /// Selected Plot type.
+        /// </summary>
+        protected PlotDataType _SelectedPlotType;
+        /// <summary>
+        /// Selected Plot type.
+        /// </summary>
+        public PlotDataType SelectedPlotType
+        {
+            get { return _SelectedPlotType; }
+            set
+            {
+                _SelectedPlotType = value;
+                NotifyOfPropertyChange(() => SelectedPlotType);
+
+                // Replot data
+                ReplotData(_SelectedPlotType);
+            }
+        }
+
+        /// <summary>
+        /// Magnitude Plot Selected.
+        /// </summary>
+        protected bool _IsMagnitude;
+        /// <summary>
+        /// Magnitude Plot Selected.
+        /// </summary>
+        public bool IsMagnitude
+        {
+            get { return _IsMagnitude; }
+            set
+            {
+                _IsMagnitude = value;
+                NotifyOfPropertyChange(() => IsMagnitude);
+
+                if (value)
+                {
+                    // Replot data
+                    ReplotData(PlotDataType.Magnitude);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Water Direction Plot Selected.
+        /// </summary>
+        protected bool _IsDirection;
+        /// <summary>
+        /// Water Direction Plot Selected.
+        /// </summary>
+        public bool IsDirection
+        {
+            get { return _IsDirection; }
+            set
+            {
+                _IsDirection = value;
+                NotifyOfPropertyChange(() => IsDirection);
+
+                if (value)
+                {
+                    // Replot data
+                    ReplotData(PlotDataType.Direction);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Amplitude Plot Selected.
+        /// </summary>
+        protected bool _IsAmplitude;
+        /// <summary>
+        /// Amplitude Plot Selected.
+        /// </summary>
+        public bool IsAmplitude
+        {
+            get { return _IsAmplitude; }
+            set
+            {
+                _IsAmplitude = value;
+                NotifyOfPropertyChange(() => IsAmplitude);
+
+                if (value)
+                {
+                    // Replot data
+                    ReplotData(PlotDataType.Amplitude);
+                }
+            }
+        }
+
+        #endregion
+
         #region Bottom Track Line
 
         /// <summary>
@@ -328,9 +421,10 @@ namespace PlotR
             base.LoadProject(fileName, minIndex, maxIndex);
 
             // Selected Plot Type
-            //PlotTypeList = Enum.GetValues(typeof(PlotDataType)).Cast<PlotDataType>().ToList();
-            SelectedPlotType = PlotDataType.Magnitude;
-            IsMagnitude = true;
+            _SelectedPlotType = PlotDataType.Magnitude;
+            NotifyOfPropertyChange(() => SelectedPlotType);
+            _IsMagnitude = true;
+            NotifyOfPropertyChange(() => IsMagnitude);
 
             // Draw the plot
             DrawPlot(fileName, _SelectedPlotType, minIndex, maxIndex);
@@ -350,7 +444,7 @@ namespace PlotR
         /// <returns>The selected for each ensemble and bin.</returns>
         private PlotData GetData(SQLiteConnection cnn, int maxNumEnsembles, PlotDataType selectedPlotType, int minIndex = 0, int maxIndex = 0)
         {
-            StatusProgressMax = TotalNumEnsembles;
+            //StatusProgressMax = TotalNumEnsembles;
             StatusProgress = 0;
 
             // Get the data to plot
@@ -390,15 +484,13 @@ namespace PlotR
                                                                     datasetColumnName,
                                                                     GenerateQueryFileList(),
                                                                     GenerateQuerySubsystemList()));
+
             // Update the progress bar
             StatusProgressMax = numEnsembles;
 
             // If min and max are used, set the limit and offset
             LimitOffset lo = CalcLimitOffset(numEnsembles, minIndex, maxIndex);
             numEnsembles = lo.Limit;
-
-            // Update the progress bar
-            StatusProgressMax = numEnsembles;
 
             // Get data
             string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,{0} FROM tblEnsemble WHERE ({1} IS NOT NULL) {2} {3} LIMIT {4} OFFSET {5};",
@@ -978,7 +1070,7 @@ namespace PlotR
         /// Replot the data based off a settings chage
         /// </summary>
         /// <param name="eplotDataType"></param>
-        public override void ReplotData(PlotDataType eplotDataType)
+        public void ReplotData(PlotDataType eplotDataType)
         {
             switch(eplotDataType)
             {
