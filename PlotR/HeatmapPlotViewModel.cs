@@ -870,7 +870,7 @@ namespace PlotR
         /// If you do not want to set a value, set the value to NULL.
         /// </summary>
         /// <param name="position">Position of the axis.</param>
-        /// <param name="majorStep">Minimum value.</param>
+        /// <param name="positionTier">Where to place the axis.</param>
         /// <param name="unit">Label for the axis.</param>
         /// <returns>LinearAxis for the plot.</returns>
         private LinearAxis CreatePlotAxis(AxisPosition position, string unit, int positionTier = 0)
@@ -1368,7 +1368,10 @@ namespace PlotR
                             _blankSize = ancData["FirstBinRange"].ToObject<double>();
 
                             // Set the major step based off the bin size
-                            _depthAxis.MajorStep = _binSize * 2.0;
+                            if (_binSize > 0)
+                            {
+                                _depthAxis.MajorStep = _binSize * 2.0;
+                            }
                         }
                     }
                 }

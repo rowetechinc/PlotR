@@ -640,7 +640,12 @@ namespace PlotR
             {
                 // Remove the last comma
                 fileList = fileList.Substring(0, fileList.Length - 1);
-                return string.Format("AND (FileName IN ({0}))", fileList);
+
+                // After removing the comma, check if it is empty
+                if (!string.IsNullOrEmpty(fileList) && fileList.Length > 3)
+                {
+                    return string.Format("AND (FileName IN ({0}))", fileList);
+                }
             }
             //else
             //{
@@ -737,7 +742,7 @@ namespace PlotR
             foreach (var item in SubsystemConfigList)
             {
                 // If checked, add to list
-                if (item.IsChecked)
+                if (item.IsChecked && !string.IsNullOrEmpty(item.Subsystem.TrimEnd('\0')))
                 {
                     sb.Append(string.Format("(Subsystem = {0} AND CepoIndex = {1}) OR", item.Subsystem, item.CepoIndex));
                 }

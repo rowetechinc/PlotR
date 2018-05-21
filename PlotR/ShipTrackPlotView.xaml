@@ -1,0 +1,103 @@
+﻿<UserControl x:Class="PlotR.ShipTrackPlotView"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+             xmlns:oxy="clr-namespace:OxyPlot.Wpf;assembly=OxyPlot.Wpf"
+             xmlns:gmaps="clr-namespace:GMap.NET.WindowsPresentation;assembly=GMap.NET.WindowsPresentation"
+             xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
+             xmlns:local="clr-namespace:PlotR"
+             mc:Ignorable="d" 
+             d:DesignHeight="300" d:DesignWidth="300">
+    <DockPanel>
+        <StatusBar DockPanel.Dock="Bottom">
+            <StatusBarItem>
+                <TextBlock Text="{Binding FileName}" ToolTip="{Binding FileName}" Width="300" />
+            </StatusBarItem>
+            <Separator Margin="5,0" />
+            <StatusBarItem>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding StatusMsg}" Margin="5,0" ToolTip="{Binding StatusMsg}" />
+                    <ProgressBar Minimum="0" Maximum="{Binding StatusProgressMax}" Value="{Binding StatusProgress}" Width="100" Margin="5,0" ToolTip="Progress displaying the data." />
+                </StackPanel>
+            </StatusBarItem>
+            <StatusBarItem HorizontalAlignment="Right">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="Ensembles: " />
+                    <TextBlock Text="{Binding TotalNumEnsembles}" Margin="0,0,5,0" ToolTip="Total number of ensembles to display." />
+                </StackPanel>
+
+            </StatusBarItem>
+        </StatusBar>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <!--oxy:PlotView Grid.Column="0" Grid.Row="0" x:Name="shiptrackPlot" Model="{Binding Plot}" /-->
+            <gmaps:GMapControl Grid.Column="0" x:Name="MapView" 
+                           Position="{Binding Position}" 
+                           MapProvider="{Binding MapProvider}" 
+                           MinZoom="2" 
+                           MaxZoom="20" 
+                           Zoom="{Binding Zoom}" 
+                           MouseWheelZoomType="MousePositionAndCenter"  
+                           CanDragMap="True"
+                           ItemsSource="{Binding Path=Markers}" />
+
+            <Expander x:Name="Exapnder" Grid.Column="1" Header="Options" ExpandDirection="Left">
+                <TabControl>
+                    <TabItem Header="Selected Files">
+                        <ListView ItemsSource="{Binding ProjectFileList}" SelectedItem="{Binding SelectedProjectFile}">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Selected">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsChecked}" Command="{Binding Command}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="File Name" DisplayMemberBinding="{Binding FileName}"  />
+                                    <GridViewColumn Header="Number Ensembles" DisplayMemberBinding="{Binding NumEnsembles}"  />
+                                    <GridViewColumn Header="First Date" DisplayMemberBinding="{Binding MinDateTime}"  />
+                                    <GridViewColumn Header="Last Date" DisplayMemberBinding="{Binding MaxDateTime}" />
+                                </GridView>
+                            </ListView.View>
+
+                        </ListView>
+                    </TabItem>
+                    <TabItem Header="Subsystem Config">
+                        <ListView ItemsSource="{Binding SubsystemConfigList}">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Selected">
+                                        <GridViewColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <CheckBox IsChecked="{Binding IsChecked}" Command="{Binding Command}" />
+                                            </DataTemplate>
+                                        </GridViewColumn.CellTemplate>
+                                    </GridViewColumn>
+                                    <GridViewColumn Header="Subsystem" DisplayMemberBinding="{Binding Subsystem}" />
+                                    <GridViewColumn Header="Index" DisplayMemberBinding="{Binding CepoIndex}" />
+                                    <GridViewColumn Header="Desc" DisplayMemberBinding="{Binding Desc}" />
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
+                    </TabItem>
+                    <TabItem Header="Plot Options">
+                        <StackPanel>
+                            <TextBlock Text="Zoom Level" />
+                            <Controls:NumericUpDown Value="{Binding Zoom}" Minimum="0" HorizontalAlignment="Left" ToolTip="Set the zoom level." />
+                        </StackPanel>
+                    </TabItem>
+                </TabControl>
+            </Expander>
+        </Grid>
+    </DockPanel>
+</UserControl>

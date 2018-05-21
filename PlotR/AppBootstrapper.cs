@@ -19,6 +19,7 @@ namespace PlotR {
             container.Singleton<PlotrViewModel, PlotrViewModel>();
             container.Singleton<IPlotViewModel, HeatmapPlotViewModel>();
             container.Singleton<IPlotViewModel, TimeSeriesViewModel>();
+            container.Singleton<IPlotViewModel, ShipTrackPlotViewModel>();
 
         }
 

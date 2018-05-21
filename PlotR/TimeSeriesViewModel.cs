@@ -856,11 +856,11 @@ namespace PlotR
                         break;
                     }
 
-                    // Ensure we do not exceed the number of ensembles
-                    if (ensIndex >= numEnsembles)
-                    {
-                        break;
-                    }
+                    //// Ensure we do not exceed the number of ensembles
+                    //if (ensIndex >= numEnsembles)
+                    //{
+                    //    break;
+                    //}
 
                     // Parse the data from the db
                     // This will be select which type of data to plot

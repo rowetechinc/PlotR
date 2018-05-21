@@ -118,6 +118,11 @@ namespace PlotR
         /// </summary>
         public TimeSeriesViewModel TimeseriesPlot { get; set; }
 
+        /// <summary>
+        /// ShipTrack plot.
+        /// </summary>
+        public ShipTrackPlotViewModel ShipTrackPlot { get; set; }
+
         #endregion
 
         #endregion
@@ -144,6 +149,11 @@ namespace PlotR
         /// </summary>
         public ReactiveCommand<Unit, Unit> TimeseriesCommand { get; private set; }
 
+        /// <summary>
+        /// View the Ship Track plot.
+        /// </summary>
+        public ReactiveCommand<Unit, Unit> ShipTrackCommand { get; private set; }
+
         #endregion
 
         /// <summary>
@@ -161,6 +171,8 @@ namespace PlotR
             IoC.BuildUp(HeatmapPlot);                       // Add to the container
             TimeseriesPlot = new TimeSeriesViewModel();     // Create VM
             IoC.BuildUp(TimeseriesPlot);                    // Add to the container
+            ShipTrackPlot = new ShipTrackPlotViewModel();   // Create VM
+            IoC.BuildUp(ShipTrackPlot);                     // Add to the container
 
             // Open file commands
             this.OpenCommand = ReactiveCommand.Create(() => OpenFile());
@@ -171,6 +183,7 @@ namespace PlotR
             // Load the plots
             this.HeatmapCommand = ReactiveCommand.Create(() => ActivateItem(HeatmapPlot));
             this.TimeseriesCommand = ReactiveCommand.Create(() => ActivateItem(TimeseriesPlot));
+            this.ShipTrackCommand = ReactiveCommand.Create(() => ActivateItem(ShipTrackPlot));
 
             // Display the plot
             ActivateItem(HeatmapPlot);
@@ -272,6 +285,10 @@ namespace PlotR
             {
                 TimeseriesPlot.LoadProject(FileName, _CurrentMinValue, _CurrentMaxValue);
             }
+            if (ShipTrackPlot != null)
+            {
+                ShipTrackPlot.LoadProject(FileName, _CurrentMinValue, _CurrentMaxValue);
+            }
         }
 
         /// <summary>
@@ -283,6 +300,11 @@ namespace PlotR
             {
                 await Task.Run(() => HeatmapPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
             }
+
+            if (TimeseriesPlot != null)
+            {
+                await Task.Run(() => TimeseriesPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
+            }
         }
 
         /// <summary>
@@ -290,14 +312,19 @@ namespace PlotR
         /// </summary>
         public async void UpdateEnsembleSelections(int min, int max)
         {
+            _CurrentMinValue = min;
+            NotifyOfPropertyChange(() => CurrentMinValue);
+            _CurrentMaxValue = max;
+            NotifyOfPropertyChange(() => CurrentMaxValue);
+
             if (HeatmapPlot != null)
             {
-                _CurrentMinValue = min;
-                NotifyOfPropertyChange(() => CurrentMinValue);
-                _CurrentMaxValue = max;
-                NotifyOfPropertyChange(() => CurrentMaxValue);
-
                 await Task.Run(() => HeatmapPlot.ReplotData(min, max));
+            }
+
+            if (TimeseriesPlot != null)
+            {
+                await Task.Run(() => TimeseriesPlot.ReplotData(min, max));
             }
         }
 
@@ -306,11 +333,17 @@ namespace PlotR
         /// </summary>
         public async void DisplayAll()
         {
+            CurrentMinValue = 1;
+            CurrentMaxValue = TotalEnsembles;
+
             if (HeatmapPlot != null)
             {
-                CurrentMinValue = 1;
-                CurrentMaxValue = TotalEnsembles;
                 await Task.Run(() => HeatmapPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
+            }
+
+            if (TimeseriesPlot != null)
+            {
+                await Task.Run(() => TimeseriesPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
             }
         }
 

@@ -19,6 +19,7 @@
             <MenuItem Header="_Plots">
                 <MenuItem Header="_Heatmap" Command="{Binding HeatmapCommand}" ToolTip="Display the Heatmap plot" />
                 <MenuItem Header="_Time Series" Command="{Binding TimeseriesCommand}" ToolTip="Display the Time series plot" />
+                <MenuItem Header="_Ship Track" Command="{Binding ShipTrackCommand}" ToolTip="Display the Time series plot" />
             </MenuItem>
         </Menu>
 
