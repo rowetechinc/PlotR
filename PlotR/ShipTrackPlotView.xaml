@@ -37,6 +37,7 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
             <!--oxy:PlotView Grid.Column="0" Grid.Row="0" x:Name="shiptrackPlot" Model="{Binding Plot}" /-->
@@ -45,12 +46,14 @@
                            MapProvider="{Binding MapProvider}" 
                            MinZoom="2" 
                            MaxZoom="20" 
-                           Zoom="{Binding Zoom}" 
+                           Zoom="{Binding Zoom, Mode=TwoWay}" 
                            MouseWheelZoomType="MousePositionAndCenter"  
                            CanDragMap="True"
                            ItemsSource="{Binding Path=Markers}" />
 
-            <Expander x:Name="Exapnder" Grid.Column="1" Header="Options" ExpandDirection="Left">
+            <ContentPresenter Grid.Column="0" Content="{Binding ColorMapCanvas}" Width="40" Margin="5,5,20,5" HorizontalAlignment="Right"/>
+
+            <Expander x:Name="Exapnder" Grid.Column="2" Header="Options" ExpandDirection="Left">
                 <TabControl>
                     <TabItem Header="Selected Files">
                         <ListView ItemsSource="{Binding ProjectFileList}" SelectedItem="{Binding SelectedProjectFile}">
@@ -92,8 +95,17 @@
                     </TabItem>
                     <TabItem Header="Plot Options">
                         <StackPanel>
-                            <TextBlock Text="Zoom Level" />
+                            <TextBlock Text="Zoom Level" Margin="5" />
                             <Controls:NumericUpDown Value="{Binding Zoom}" Minimum="0" HorizontalAlignment="Left" ToolTip="Set the zoom level." />
+                            <Separator />
+                            <TextBlock Text="Magnitude Scale" Margin="5" />
+                            <Controls:NumericUpDown Value="{Binding MagScale}" Minimum="1" HorizontalAlignment="Left" ToolTip="Magnitude scale.  This will increase or decrease the line to see the results better." />
+                            <Separator />
+                            
+                            <TextBlock Text="Minimum Value" Margin="5" />
+                            <Controls:NumericUpDown Value="{Binding MinValue}" HorizontalAlignment="Left" ToolTip="Minimum value for the color map." />
+                            <TextBlock Text="Maximum Value" Margin="5" />
+                            <Controls:NumericUpDown Value="{Binding MaxValue}" StringFormat="N2" HorizontalAlignment="Left" ToolTip="Maximum value for the color map." />
                         </StackPanel>
                     </TabItem>
                 </TabControl>

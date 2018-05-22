@@ -1,6 +1,7 @@
 ﻿using GMap.NET;
 using GMap.NET.WindowsForms.Markers;
 using GMap.NET.WindowsPresentation;
+using Newtonsoft.Json.Linq;
 using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
@@ -60,6 +61,8 @@ namespace PlotR
 
         #region Properites
 
+        #region Plot Scale
+
         /// <summary>
         /// Magnitude scale.  This value is mulitplied to the magnitude
         /// value to increase or decrease the line length for visual representation.
@@ -76,30 +79,69 @@ namespace PlotR
             {
                 _MagScale = value;
                 NotifyOfPropertyChange(() => MagScale);
+
+                ReplotData();
+            }
+        }
+
+        /// <summary>
+        /// Set the minimum value.
+        /// </summary>
+        private double _MinValue;
+        /// <summary>
+        /// Set the minimum value.
+        /// </summary>
+        public double MinValue
+        {
+            get { return _MinValue; }
+            set
+            {
+                _MinValue = value;
+                NotifyOfPropertyChange(() => MinValue);
+
+                // Replot the data
+                ReplotData();
+
+                // Set the color map canvas
+                ColorMapCanvas = ColorHM.GetColorMapCanvas(_MinValue, _MaxValue);
+                NotifyOfPropertyChange(() => ColorMapCanvas);
+            }
+        }
+
+        /// <summary>
+        /// Set the maximum value.
+        /// </summary>
+        private double _MaxValue;
+        /// <summary>
+        /// Set the maximum value.
+        /// </summary>
+        public double MaxValue
+        {
+            get { return _MaxValue; }
+            set
+            {
+                _MaxValue = value;
+                NotifyOfPropertyChange(() => MaxValue);
+
+                // Replot the data
+                ReplotData();
+
+                // Set the color map canvas
+                ColorMapCanvas = ColorHM.GetColorMapCanvas(_MinValue, _MaxValue);
+                NotifyOfPropertyChange(() => ColorMapCanvas);
             }
         }
 
         #endregion
 
-        #region GMap
-        public ObservableCollection<GMapMarker> Markers { get; set; }
-        //public ObservableCollection<GMarkerGoogle> Markers
-        //{
-        //    get
-        //    {
-        //        return _Markers;
-        //    }
-        //    set
-        //    {
-        //        if(_Markers == value)
-        //        {
-        //            return;
-        //        }
-        //        _Markers = value;
-        //        NotifyOfPropertyChange(() => Markers);
-        //    }
-        //}
+        #endregion
 
+        #region GMap
+
+        /// <summary>
+        /// List of all the markers.
+        /// </summary>
+        public ObservableCollection<GMapMarker> Markers { get; set; }
 
         /// <summary>
         /// Current position on the map.
@@ -135,9 +177,26 @@ namespace PlotR
             }
         }
 
-
+        /// <summary>
+        /// Map provider.
+        /// </summary>
         public GMap.NET.MapProviders.GoogleMapProvider MapProvider { get; set; }
+
+        /// <summary>
+        /// Zoom type.
+        /// </summary>
         public GMap.NET.MouseWheelZoomType MouseWheelZoomType { get; set; }
+
+
+        /// <summary>
+        /// Convert the values to a color based off a color map.
+        /// </summary>
+        public ColorHeatMap ColorHM { get; set; }
+
+        /// <summary>
+        /// Color map canvas to display the options.
+        /// </summary>
+        public System.Windows.Controls.Canvas ColorMapCanvas { get; set; }
 
         #endregion
 
@@ -145,13 +204,23 @@ namespace PlotR
         {
             // Create the plot
             Plot = CreatePlot();
-            
+
+            ColorHM = new ColorHeatMap(0x80);      // 50% alpha
+
             // Create GMap
             GMap.NET.GMaps.Instance.Mode = GMap.NET.AccessMode.ServerAndCache;
             MapProvider = GMap.NET.MapProviders.GoogleMapProvider.Instance;
             Markers = new ObservableCollection<GMapMarker>();
             Position = new PointLatLng();
             Zoom = 1;
+            _MagScale = 5;
+            _MinValue = 0.0;
+            _MaxValue = 2.0;
+            NotifyOfPropertyChange(() => MagScale);
+            NotifyOfPropertyChange(() => MinValue);
+            NotifyOfPropertyChange(() => MaxValue);
+
+            ColorMapCanvas = ColorHM.GetColorMapCanvas(_MinValue, _MaxValue);       // Set the color map canvas
 
             // To force shutdown of the GMAP
             //MapView.Manager.CancelTileCaching();
@@ -263,6 +332,9 @@ namespace PlotR
 
         private void DrawPlot(int minIndex, int maxIndex)
         {
+            // Clear the current markers
+            Markers.Clear();
+
             // Verify a file was given
             if (!string.IsNullOrEmpty(_ProjectFilePath))
             {
@@ -297,7 +369,6 @@ namespace PlotR
                             data = GetData(sqlite_conn, _MagScale, minIndex, maxIndex);
 
                             // If there is no data, do not plot
-
                             if (data != null)
                             {
                                 // Update status
@@ -361,7 +432,7 @@ namespace PlotR
             numEnsembles = lo.Limit;
 
             // Get data
-            string query = string.Format("SELECT ID,EnsembleNum,DateTime,{0} FROM tblEnsemble WHERE ({1} IS NOT NULL) {2} {3} LIMIT {4} OFFSET {5};",
+            string query = string.Format("SELECT ID,EnsembleNum,DateTime,EarthVelocityDS,{0} FROM tblEnsemble WHERE ({1} IS NOT NULL) {2} {3} LIMIT {4} OFFSET {5};",
                                             datasetColumnName,
                                             datasetColumnName,
                                             GenerateQueryFileList(),
@@ -405,12 +476,27 @@ namespace PlotR
                 DbDataReader reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
+                    // Init the value
+                    double avgMag = 0.0;
+                    double avgDir = 0.0;
+
                     // Plot the lat/lon
                     string lat_lon = StatusMsg = reader["Position"].ToString();
 
+                    // Get the magnitude data
+                    string jsonEarth = reader["EarthVelocityDS"].ToString();
+                    if (!string.IsNullOrEmpty(jsonEarth))
+                    {
+                        // Convert to a JSON object
+                        JObject ensEarth = JObject.Parse(jsonEarth);
+
+                        // Average the data
+                        avgMag = GetAvgMag(ensEarth);
+                        avgDir = GetAvgDir(ensEarth);
+                    }
+
                     if (!string.IsNullOrEmpty(lat_lon))
                     {
-
                         // Separate the position by comma
                         string[] lat_lon_items = lat_lon.Split(',');
 
@@ -425,21 +511,36 @@ namespace PlotR
                             // Add it to the series
                             stData.ShipSeries.Points.Add(new DataPoint(lat, lon));
 
+                            // Convert the value to color from the color map
+                            System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(ColorHM.GetColorForValue(avgMag, _MinValue, _MaxValue));
+
                             // Mark
                             //GMarkerGoogle marker = new GMarkerGoogle(new GMap.NET.PointLatLng(lat, lon), GMarkerGoogleType.blue);
                             //GMapMarker marker = new GMarkerGoogle(new GMap.NET.PointLatLng(lat, lon), GMarkerGoogleType.blue);
                             GMapMarker marker = new GMapMarker(new GMap.NET.PointLatLng(lat, lon));
                             System.Windows.Media.BrushConverter converter = new System.Windows.Media.BrushConverter();
-                            System.Windows.Media.Brush redBrush = (System.Windows.Media.Brush)converter.ConvertFromString("#80FF0000");  // 50 Alpha Red
-                            marker.Shape = new Rectangle
+                            //System.Windows.Media.Brush brush = (System.Windows.Media.Brush)converter.ConvertFromString("#80FF0000");  // 50 Alpha Red
+                            
+                            //marker.Shape = new Rectangle
+                            //{
+                            //    Width = 20,
+                            //    Height = 20,
+                            //    //Stroke = Brushes.Black,
+                            //    //StrokeThickness = 1.5,
+                            //    Fill = brush,
+                            //    Stroke = brush
+                            //};
+
+                            marker.Shape = new Line
                             {
-                                Width = 20,
-                                Height = 20,
-                                //Stroke = Brushes.Black,
-                                //StrokeThickness = 1.5,
-                                Fill = redBrush,
-                                Stroke = redBrush
-                        };
+                                X1 = 0,
+                                Y1 = 0,
+                                X2 = (Math.Abs(avgMag) * magScale) * Math.Cos(avgDir),
+                                Y2 = (Math.Abs(avgMag) * magScale) * Math.Sin(avgDir),
+                                StrokeThickness = 3,
+                                Stroke = brush
+                            };
+
                             Markers.Add(marker);
                         }
                     }
@@ -480,6 +581,78 @@ namespace PlotR
             centroide.Lng = lng;
 
             return centroide;
+        }
+
+        #endregion
+
+        #region Velocity Vector Average
+
+        /// <summary>
+        /// Get the average magnitude from the earth velocity data.
+        /// </summary>
+        /// <param name="ensEarth">Earth JSON object.</param>
+        /// <returns>Average of the magnitude data.</returns>
+        public double GetAvgMag(JObject ensEarth)
+        {
+            double avg = 0.0;
+            int count = 0;
+
+            // Get the number of bins
+            int numBins = ensEarth["NumElements"].ToObject<int>();
+            for (int bin = 0; bin < numBins; bin++)
+            {
+                // Get the velocity vector magntidue from the JSON object and add it to the array
+                double data = ensEarth["VelocityVectors"][bin]["Magnitude"].ToObject<double>();
+
+                // Verify its good data
+                if(Math.Round(data, 3) != BAD_VELOCITY)
+                {
+                    avg += data;
+                    count++;
+                }
+            }
+
+            // Take the average
+            if(count > 0)
+            {
+                return avg / count;
+            }
+
+            return avg;
+        }
+
+        /// <summary>
+        /// Get the average direction from the earth velocity data.
+        /// </summary>
+        /// <param name="ensEarth">Earth JSON object.</param>
+        /// <returns>Average of the direction data.</returns>
+        public double GetAvgDir(JObject ensEarth)
+        {
+            double avg = 0.0;
+            int count = 0;
+
+            // Get the number of bins
+            int numBins = ensEarth["NumElements"].ToObject<int>();
+            for (int bin = 0; bin < numBins; bin++)
+            {
+                // Get the velocity vector direction from the JSON object and add it to the array
+                double data = ensEarth["VelocityVectors"][bin]["DirectionXNorth"].ToObject<double>();
+
+                // Verify its good data
+                if (Math.Round(data, 3) != BAD_VELOCITY)
+                {
+                    avg += data;
+                    count++;
+                }
+            }
+
+            // Take the average
+            if (count > 0)
+            {
+                return avg / count;
+            }
+
+            return avg;
         }
 
         #endregion
