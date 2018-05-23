@@ -5,6 +5,7 @@ using Newtonsoft.Json.Linq;
 using OxyPlot;
 using OxyPlot.Axes;
 using OxyPlot.Series;
+using ReactiveUI;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -15,6 +16,7 @@ using System.Data.SQLite;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -103,7 +105,7 @@ namespace PlotR
                 ReplotData();
 
                 // Set the color map canvas
-                ColorMapCanvas = ColorHM.GetColorMapCanvas(_MinValue, _MaxValue);
+                ColorMapCanvas = ColorHM.GetColorMapLegend(_MinValue, _MaxValue);
                 NotifyOfPropertyChange(() => ColorMapCanvas);
             }
         }
@@ -127,7 +129,7 @@ namespace PlotR
                 ReplotData();
 
                 // Set the color map canvas
-                ColorMapCanvas = ColorHM.GetColorMapCanvas(_MinValue, _MaxValue);
+                ColorMapCanvas = ColorHM.GetColorMapLegend(_MinValue, _MaxValue);
                 NotifyOfPropertyChange(() => ColorMapCanvas);
             }
         }
@@ -178,9 +180,31 @@ namespace PlotR
         }
 
         /// <summary>
+        /// List of map providers.
+        /// </summary>
+        public ObservableCollection<GMap.NET.MapProviders.GMapProvider> MapProviderList { get; set; }
+
+        /// <summary>
+        /// Map Provider.
+        /// </summary>
+        private GMap.NET.MapProviders.GMapProvider _SelectedMapProvider;
+        /// <summary>
         /// Map provider.
         /// </summary>
-        public GMap.NET.MapProviders.GoogleMapProvider MapProvider { get; set; }
+        public GMap.NET.MapProviders.GMapProvider SelectedMapProvider
+        {
+            get
+            {
+                return _SelectedMapProvider;
+            }
+            set
+            {
+                _SelectedMapProvider = value;
+                NotifyOfPropertyChange(() => SelectedMapProvider);
+
+                ((ShipTrackPlotView)this.GetView()).MapView.ReloadMap();
+            }
+        }
 
         /// <summary>
         /// Zoom type.
@@ -200,6 +224,15 @@ namespace PlotR
 
         #endregion
 
+        #region 
+
+        /// <summary>
+        /// Add a series to the plot.
+        /// </summary>
+        public ReactiveCommand<Unit, Unit> TakeScreenShotCommand { get; private set; }
+
+        #endregion
+
         public ShipTrackPlotViewModel()
         {
             // Create the plot
@@ -209,21 +242,39 @@ namespace PlotR
 
             // Create GMap
             GMap.NET.GMaps.Instance.Mode = GMap.NET.AccessMode.ServerAndCache;
-            MapProvider = GMap.NET.MapProviders.GoogleMapProvider.Instance;
+
+            MapProviderList = new ObservableCollection<GMap.NET.MapProviders.GMapProvider>();
+            MapProviderList.Add(GMap.NET.MapProviders.GoogleMapProvider.Instance);
+            MapProviderList.Add(GMap.NET.MapProviders.GoogleHybridMapProvider.Instance);
+            MapProviderList.Add(GMap.NET.MapProviders.BingMapProvider.Instance);
+            MapProviderList.Add(GMap.NET.MapProviders.OpenStreetMapProvider.Instance);
+            MapProviderList.Add(GMap.NET.MapProviders.GoogleChinaMapProvider.Instance);
+            MapProviderList.Add(GMap.NET.MapProviders.ArcGIS_World_Topo_MapProvider.Instance);
+            MapProviderList.Add(GMap.NET.MapProviders.ArcGIS_World_Physical_MapProvider.Instance);
+            MapProviderList.Add(GMap.NET.MapProviders.ArcGIS_World_Terrain_Base_MapProvider.Instance);
+            MapProviderList.Add(GMap.NET.MapProviders.HereHybridMapProvider.Instance);
+            MapProviderList.Add(GMap.NET.MapProviders.LithuaniaMapProvider.Instance);
+            _SelectedMapProvider = GMap.NET.MapProviders.GoogleMapProvider.Instance;
+            NotifyOfPropertyChange(() => SelectedMapProvider);
+
             Markers = new ObservableCollection<GMapMarker>();
             Position = new PointLatLng();
             Zoom = 1;
-            _MagScale = 5;
+            _MagScale = 25;
             _MinValue = 0.0;
             _MaxValue = 2.0;
             NotifyOfPropertyChange(() => MagScale);
             NotifyOfPropertyChange(() => MinValue);
             NotifyOfPropertyChange(() => MaxValue);
 
-            ColorMapCanvas = ColorHM.GetColorMapCanvas(_MinValue, _MaxValue);       // Set the color map canvas
+            ColorMapCanvas = ColorHM.GetColorMapLegend(_MinValue, _MaxValue);       // Set the color map canvas
 
             // To force shutdown of the GMAP
             //MapView.Manager.CancelTileCaching();
+
+            // Take a Screen Shot
+            this.TakeScreenShotCommand = ReactiveCommand.Create(() => TakeScreenShot());
+            
         }
 
         #region Create Plot
@@ -480,6 +531,10 @@ namespace PlotR
                     double avgMag = 0.0;
                     double avgDir = 0.0;
 
+                    // Get the Ensemble number and Date and time
+                    string dateTime = reader["DateTime"].ToString();
+                    string ensNum = reader["EnsembleNum"].ToString();
+
                     // Plot the lat/lon
                     string lat_lon = StatusMsg = reader["Position"].ToString();
 
@@ -493,6 +548,8 @@ namespace PlotR
                         // Average the data
                         avgMag = GetAvgMag(ensEarth);
                         avgDir = GetAvgDir(ensEarth);
+
+                        //Debug.WriteLine(string.Format("Avg Dir: {0} Avg Mag: {1}", avgDir, avgMag));
                     }
 
                     if (!string.IsNullOrEmpty(lat_lon))
@@ -520,7 +577,7 @@ namespace PlotR
                             GMapMarker marker = new GMapMarker(new GMap.NET.PointLatLng(lat, lon));
                             System.Windows.Media.BrushConverter converter = new System.Windows.Media.BrushConverter();
                             //System.Windows.Media.Brush brush = (System.Windows.Media.Brush)converter.ConvertFromString("#80FF0000");  // 50 Alpha Red
-                            
+
                             //marker.Shape = new Rectangle
                             //{
                             //    Width = 20,
@@ -531,14 +588,18 @@ namespace PlotR
                             //    Stroke = brush
                             //};
 
+                            // Degrees to radian
+                            double angle = Math.PI * avgDir / 180.0;
+
                             marker.Shape = new Line
                             {
                                 X1 = 0,
                                 Y1 = 0,
-                                X2 = (Math.Abs(avgMag) * magScale) * Math.Cos(avgDir),
-                                Y2 = (Math.Abs(avgMag) * magScale) * Math.Sin(avgDir),
+                                X2 = (Math.Abs(avgMag) * magScale) * Math.Cos(angle),
+                                Y2 = -((Math.Abs(avgMag) * magScale) * Math.Sin(angle)),        // Flip the sign
                                 StrokeThickness = 3,
-                                Stroke = brush
+                                Stroke = brush,
+                                ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3}", ensNum, dateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"))
                             };
 
                             Markers.Add(marker);
@@ -636,7 +697,7 @@ namespace PlotR
             for (int bin = 0; bin < numBins; bin++)
             {
                 // Get the velocity vector direction from the JSON object and add it to the array
-                double data = ensEarth["VelocityVectors"][bin]["DirectionXNorth"].ToObject<double>();
+                double data = ensEarth["VelocityVectors"][bin]["DirectionYNorth"].ToObject<double>();
 
                 // Verify its good data
                 if (Math.Round(data, 3) != BAD_VELOCITY)
@@ -681,6 +742,15 @@ namespace PlotR
         }
 
 
+
+        #endregion
+
+        #region Take Screen Shot
+
+        public void TakeScreenShot()
+        {
+            ((ShipTrackPlotView)this.GetView()).TakeScreenShot();
+        }
 
         #endregion
 

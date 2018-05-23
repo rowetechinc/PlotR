@@ -714,7 +714,7 @@ namespace PlotR
                         else
                         {
                             // Get the velocity vector magntidue from the JSON object and add it to the array
-                            data[bin] = ensEarth["VelocityVectors"][bin]["DirectionXNorth"].ToObject<double>();
+                            data[bin] = ensEarth["VelocityVectors"][bin]["DirectionYNorth"].ToObject<double>();
                         }
                     }
 

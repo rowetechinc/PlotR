@@ -117,10 +117,13 @@ namespace PlotR
         }
 
         /// <summary>
-        /// Create the color map canvas.
+        /// Create the color map legend on a canvas.  The canvas 320 in height and 40 in width (320x40).
+        /// 
+        /// Binding
+        /// [ContentPresenter Content="{Binding ColorMapCanvas}" Width="40" Margin="5,5,20,5" HorizontalAlignment="Right"/]
         /// </summary>
-        /// <returns>Canvas of the color map.</returns>
-        public System.Windows.Controls.Canvas GetColorMapCanvas(double minVal, double maxVal)
+        /// <returns>Canvas of the color map legend.</returns>
+        public System.Windows.Controls.Canvas GetColorMapLegend(double minVal, double maxVal)
         {
             // Width and height
             double width = 20;

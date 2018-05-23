@@ -43,9 +43,9 @@
             <!--oxy:PlotView Grid.Column="0" Grid.Row="0" x:Name="shiptrackPlot" Model="{Binding Plot}" /-->
             <gmaps:GMapControl Grid.Column="0" x:Name="MapView" 
                            Position="{Binding Position}" 
-                           MapProvider="{Binding MapProvider}" 
+                           MapProvider="{Binding SelectedMapProvider, Mode=TwoWay}" 
                            MinZoom="2" 
-                           MaxZoom="20" 
+                           MaxZoom="25"
                            Zoom="{Binding Zoom, Mode=TwoWay}" 
                            MouseWheelZoomType="MousePositionAndCenter"  
                            CanDragMap="True"
@@ -55,6 +55,29 @@
 
             <Expander x:Name="Exapnder" Grid.Column="2" Header="Options" ExpandDirection="Left">
                 <TabControl>
+                    <TabItem Header="Plot Options">
+                        <StackPanel>
+                            <TextBlock Text="Zoom Level" Margin="5" />
+                            <Controls:NumericUpDown Value="{Binding Zoom}" Minimum="0" HorizontalAlignment="Left" ToolTip="Set the zoom level." />
+                            <Separator />
+                            <TextBlock Text="Magnitude Scale" Margin="5" />
+                            <Controls:NumericUpDown Value="{Binding MagScale}" Minimum="1" HorizontalAlignment="Left" ToolTip="Magnitude scale.  This will increase or decrease the line to see the results better." />
+                            <Separator />
+
+                            <TextBlock Text="Minimum Value" Margin="5" />
+                            <Controls:NumericUpDown Value="{Binding MinValue}" HorizontalAlignment="Left" ToolTip="Minimum value for the color map." />
+                            <TextBlock Text="Maximum Value" Margin="5" />
+                            <Controls:NumericUpDown Value="{Binding MaxValue}" StringFormat="N2" HorizontalAlignment="Left" ToolTip="Maximum value for the color map." />
+
+                            <Separator />
+                            <!--Button Content="Take Screen Shot" Command="{Binding TakeScreenShotCommand}" Margin="5" /-->
+
+                            <TextBlock Text="Map Provider" Margin="5" />
+                            <ComboBox ItemsSource="{Binding MapProviderList}" SelectedValue="{Binding SelectedMapProvider}" />
+
+                        </StackPanel>
+                    </TabItem>
+
                     <TabItem Header="Selected Files">
                         <ListView ItemsSource="{Binding ProjectFileList}" SelectedItem="{Binding SelectedProjectFile}">
                             <ListView.View>
@@ -93,21 +116,7 @@
                             </ListView.View>
                         </ListView>
                     </TabItem>
-                    <TabItem Header="Plot Options">
-                        <StackPanel>
-                            <TextBlock Text="Zoom Level" Margin="5" />
-                            <Controls:NumericUpDown Value="{Binding Zoom}" Minimum="0" HorizontalAlignment="Left" ToolTip="Set the zoom level." />
-                            <Separator />
-                            <TextBlock Text="Magnitude Scale" Margin="5" />
-                            <Controls:NumericUpDown Value="{Binding MagScale}" Minimum="1" HorizontalAlignment="Left" ToolTip="Magnitude scale.  This will increase or decrease the line to see the results better." />
-                            <Separator />
-                            
-                            <TextBlock Text="Minimum Value" Margin="5" />
-                            <Controls:NumericUpDown Value="{Binding MinValue}" HorizontalAlignment="Left" ToolTip="Minimum value for the color map." />
-                            <TextBlock Text="Maximum Value" Margin="5" />
-                            <Controls:NumericUpDown Value="{Binding MaxValue}" StringFormat="N2" HorizontalAlignment="Left" ToolTip="Maximum value for the color map." />
-                        </StackPanel>
-                    </TabItem>
+                    
                 </TabControl>
             </Expander>
         </Grid>
