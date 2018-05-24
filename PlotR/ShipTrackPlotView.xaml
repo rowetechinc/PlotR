@@ -60,14 +60,19 @@
                             <TextBlock Text="Zoom Level" Margin="5" />
                             <Controls:NumericUpDown Value="{Binding Zoom}" Minimum="0" HorizontalAlignment="Left" ToolTip="Set the zoom level." />
                             <Separator />
+
+                            <TextBlock Text="Plot Water Magnitude and Direction Line" Margin="5" />
+                            <Controls:ToggleSwitch IsChecked="{Binding IsPlotWaterLine}" HorizontalAlignment="Left" ToolTip="Turn ON, plot a Water Line of the magnitude and direction.  Turn OFF, plot a rectangle of the water magnitude." />
+                            <Separator />
+
                             <TextBlock Text="Magnitude Scale" Margin="5" />
                             <Controls:NumericUpDown Value="{Binding MagScale}" Minimum="1" HorizontalAlignment="Left" ToolTip="Magnitude scale.  This will increase or decrease the line to see the results better." />
                             <Separator />
 
-                            <TextBlock Text="Minimum Value" Margin="5" />
-                            <Controls:NumericUpDown Value="{Binding MinValue}" HorizontalAlignment="Left" ToolTip="Minimum value for the color map." />
-                            <TextBlock Text="Maximum Value" Margin="5" />
-                            <Controls:NumericUpDown Value="{Binding MaxValue}" StringFormat="N2" HorizontalAlignment="Left" ToolTip="Maximum value for the color map." />
+                            <TextBlock Text="Minimum Value (m/s)" Margin="5" />
+                            <Controls:NumericUpDown Value="{Binding MinValue}" HorizontalAlignment="Left" ToolTip="Minimum (m/s) value for the color map." />
+                            <TextBlock Text="Maximum Value (m/s)" Margin="5" />
+                            <Controls:NumericUpDown Value="{Binding MaxValue}" StringFormat="N2" HorizontalAlignment="Left" ToolTip="Maximum (m/s) value for the color map." />
 
                             <Separator />
                             <!--Button Content="Take Screen Shot" Command="{Binding TakeScreenShotCommand}" Margin="5" /-->

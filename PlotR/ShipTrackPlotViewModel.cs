@@ -136,8 +136,6 @@ namespace PlotR
 
         #endregion
 
-        #endregion
-
         #region GMap
 
         /// <summary>
@@ -224,7 +222,64 @@ namespace PlotR
 
         #endregion
 
-        #region 
+        #region Plot Options
+
+        /// <summary>
+        /// Flag to mark bad below bottom.
+        /// </summary>
+        private bool _IsMarkBadBelowBottom;
+        /// <summary>
+        /// Flag to mark bad below bottom.
+        /// </summary>
+        public bool IsMarkBadBelowBottom
+        {
+            get { return _IsMarkBadBelowBottom; }
+            set
+            {
+                _IsMarkBadBelowBottom = value;
+                NotifyOfPropertyChange(() => IsMarkBadBelowBottom);
+
+                ReplotData();
+            }
+        }
+
+        /// <summary>
+        /// Plot a water line or rectangle.
+        /// </summary>
+        private bool _IsPlotWaterLine;
+        /// <summary>
+        /// Plot a water line or rectangle.
+        /// </summary>
+        public bool IsPlotWaterLine
+        {
+            get { return _IsPlotWaterLine; }
+            set
+            {
+                _IsPlotWaterLine = value;
+                NotifyOfPropertyChange(() => IsPlotWaterLine);
+
+                // Reset the mag scale
+                if(value)
+                {
+                    // Use default magScale
+                    _MagScale = 75;
+                    NotifyOfPropertyChange(() => MagScale);
+                }
+                else
+                {
+                    _MagScale = 1;
+                    NotifyOfPropertyChange(() => MagScale);
+                }
+
+                ReplotData();
+            }
+        }
+
+        #endregion
+
+        #endregion
+
+        #region Commands
 
         /// <summary>
         /// Add a series to the plot.
@@ -233,6 +288,9 @@ namespace PlotR
 
         #endregion
 
+        /// <summary>
+        /// Initialize the map.
+        /// </summary>
         public ShipTrackPlotViewModel()
         {
             // Create the plot
@@ -260,12 +318,16 @@ namespace PlotR
             Markers = new ObservableCollection<GMapMarker>();
             Position = new PointLatLng();
             Zoom = 1;
-            _MagScale = 25;
+            _IsPlotWaterLine = true;
+            _IsMarkBadBelowBottom = true;
+            _MagScale = 75;
             _MinValue = 0.0;
             _MaxValue = 2.0;
             NotifyOfPropertyChange(() => MagScale);
             NotifyOfPropertyChange(() => MinValue);
             NotifyOfPropertyChange(() => MaxValue);
+            NotifyOfPropertyChange(() => IsPlotWaterLine);
+            NotifyOfPropertyChange(() => IsMarkBadBelowBottom);
 
             ColorMapCanvas = ColorHM.GetColorMapLegend(_MinValue, _MaxValue);       // Set the color map canvas
 
@@ -483,7 +545,7 @@ namespace PlotR
             numEnsembles = lo.Limit;
 
             // Get data
-            string query = string.Format("SELECT ID,EnsembleNum,DateTime,EarthVelocityDS,{0} FROM tblEnsemble WHERE ({1} IS NOT NULL) {2} {3} LIMIT {4} OFFSET {5};",
+            string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,EarthVelocityDS,{0} FROM tblEnsemble WHERE ({1} IS NOT NULL) {2} {3} LIMIT {4} OFFSET {5};",
                                             datasetColumnName,
                                             datasetColumnName,
                                             GenerateQueryFileList(),
@@ -508,6 +570,8 @@ namespace PlotR
         {
             // Init list
             int ensIndex = 0;
+            double backupBtEast = DataHelper.BAD_VELOCITY;
+            double backupBtNorth = DataHelper.BAD_VELOCITY;
 
             // Init the new series data
             ShipTrackData stData = new ShipTrackData();
@@ -538,18 +602,33 @@ namespace PlotR
                     // Plot the lat/lon
                     string lat_lon = StatusMsg = reader["Position"].ToString();
 
-                    // Get the magnitude data
-                    string jsonEarth = reader["EarthVelocityDS"].ToString();
-                    if (!string.IsNullOrEmpty(jsonEarth))
+                    //// Get the range bin
+                    //int rangeBin = DataHelper.GetRangeBin(reader);
+
+                    //// Get the magnitude data
+                    //string jsonEarth = reader["EarthVelocityDS"].ToString();
+                    //if (!string.IsNullOrEmpty(jsonEarth))
+                    //{
+                    //    // Convert to a JSON object
+                    //    JObject ensEarth = JObject.Parse(jsonEarth);
+
+                    //    // Average the data
+                    //    avgMag = DataHelper.GetAvgMag(ensEarth, IsMarkBadBelowBottom, rangeBin, DataHelper.BAD_VELOCITY);
+                    //    avgDir = DataHelper.GetAvgDir(ensEarth, IsMarkBadBelowBottom, rangeBin, DataHelper.BAD_VELOCITY);
+
+                    //    //Debug.WriteLine(string.Format("Avg Dir: {0} Avg Mag: {1}", avgDir, avgMag));
+                    //}
+
+                    // Get the velocity
+                    DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, backupBtEast, backupBtNorth, true, true);
+                    avgMag = velMagDir.AvgMagnitude;
+                    avgDir = velMagDir.AvgDirectionYNorth;
+
+                    // Store the backup value
+                    if(velMagDir.IsBtVelGood)
                     {
-                        // Convert to a JSON object
-                        JObject ensEarth = JObject.Parse(jsonEarth);
-
-                        // Average the data
-                        avgMag = GetAvgMag(ensEarth);
-                        avgDir = GetAvgDir(ensEarth);
-
-                        //Debug.WriteLine(string.Format("Avg Dir: {0} Avg Mag: {1}", avgDir, avgMag));
+                        backupBtEast = velMagDir.BtEastVel;
+                        backupBtNorth = velMagDir.BtNorthVel;
                     }
 
                     if (!string.IsNullOrEmpty(lat_lon))
@@ -578,29 +657,33 @@ namespace PlotR
                             System.Windows.Media.BrushConverter converter = new System.Windows.Media.BrushConverter();
                             //System.Windows.Media.Brush brush = (System.Windows.Media.Brush)converter.ConvertFromString("#80FF0000");  // 50 Alpha Red
 
-                            //marker.Shape = new Rectangle
-                            //{
-                            //    Width = 20,
-                            //    Height = 20,
-                            //    //Stroke = Brushes.Black,
-                            //    //StrokeThickness = 1.5,
-                            //    Fill = brush,
-                            //    Stroke = brush
-                            //};
-
-                            // Degrees to radian
-                            double angle = Math.PI * avgDir / 180.0;
-
-                            marker.Shape = new Line
+                            if (_IsPlotWaterLine)
                             {
-                                X1 = 0,
-                                Y1 = 0,
-                                X2 = (Math.Abs(avgMag) * magScale) * Math.Cos(angle),
-                                Y2 = -((Math.Abs(avgMag) * magScale) * Math.Sin(angle)),        // Flip the sign
-                                StrokeThickness = 3,
-                                Stroke = brush,
-                                ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3}", ensNum, dateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"))
-                            };
+                                // Degrees to radian
+                                double angle = Math.PI * avgDir / 180.0;
+
+                                marker.Shape = new Line
+                                {
+                                    X1 = 0,
+                                    Y1 = 0,
+                                    X2 = (Math.Abs(avgMag) * magScale) * Math.Cos(angle),
+                                    Y2 = -((Math.Abs(avgMag) * magScale) * Math.Sin(angle)),        // Flip the sign
+                                    StrokeThickness = 3,
+                                    Stroke = brush,
+                                    ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3}", ensNum, dateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"))
+                                };
+                            }
+                            else
+                            {
+                                marker.Shape = new Rectangle
+                                {
+                                    Width = 20 * magScale,
+                                    Height = 20 * magScale,
+                                    Fill = brush,
+                                    Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
+                                    ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3}", ensNum, dateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"))
+                                };
+                            }
 
                             Markers.Add(marker);
                         }
@@ -642,78 +725,6 @@ namespace PlotR
             centroide.Lng = lng;
 
             return centroide;
-        }
-
-        #endregion
-
-        #region Velocity Vector Average
-
-        /// <summary>
-        /// Get the average magnitude from the earth velocity data.
-        /// </summary>
-        /// <param name="ensEarth">Earth JSON object.</param>
-        /// <returns>Average of the magnitude data.</returns>
-        public double GetAvgMag(JObject ensEarth)
-        {
-            double avg = 0.0;
-            int count = 0;
-
-            // Get the number of bins
-            int numBins = ensEarth["NumElements"].ToObject<int>();
-            for (int bin = 0; bin < numBins; bin++)
-            {
-                // Get the velocity vector magntidue from the JSON object and add it to the array
-                double data = ensEarth["VelocityVectors"][bin]["Magnitude"].ToObject<double>();
-
-                // Verify its good data
-                if(Math.Round(data, 3) != BAD_VELOCITY)
-                {
-                    avg += data;
-                    count++;
-                }
-            }
-
-            // Take the average
-            if(count > 0)
-            {
-                return avg / count;
-            }
-
-            return avg;
-        }
-
-        /// <summary>
-        /// Get the average direction from the earth velocity data.
-        /// </summary>
-        /// <param name="ensEarth">Earth JSON object.</param>
-        /// <returns>Average of the direction data.</returns>
-        public double GetAvgDir(JObject ensEarth)
-        {
-            double avg = 0.0;
-            int count = 0;
-
-            // Get the number of bins
-            int numBins = ensEarth["NumElements"].ToObject<int>();
-            for (int bin = 0; bin < numBins; bin++)
-            {
-                // Get the velocity vector direction from the JSON object and add it to the array
-                double data = ensEarth["VelocityVectors"][bin]["DirectionYNorth"].ToObject<double>();
-
-                // Verify its good data
-                if (Math.Round(data, 3) != BAD_VELOCITY)
-                {
-                    avg += data;
-                    count++;
-                }
-            }
-
-            // Take the average
-            if (count > 0)
-            {
-                return avg / count;
-            }
-
-            return avg;
         }
 
         #endregion

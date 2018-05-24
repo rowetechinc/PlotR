@@ -142,6 +142,7 @@
     </ApplicationDefinition>
     <Compile Include="AppBootstrapper.cs" />
     <Compile Include="ColorHeatMap.cs" />
+    <Compile Include="DataHelper.cs" />
     <Compile Include="hamburger.xaml.cs">
       <DependentUpon>hamburger.xaml</DependentUpon>
     </Compile>

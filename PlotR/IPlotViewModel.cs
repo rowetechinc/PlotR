@@ -15,6 +15,8 @@ namespace PlotR
         Magnitude,
         Direction,
         Amplitude,
+        BottomTrackRange,
+        BottomTrackEarthVelocity
     }
 
     /// <summary>

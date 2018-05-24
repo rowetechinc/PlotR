@@ -23,6 +23,8 @@
                 <MenuItem IsCheckable="True" IsChecked="{Binding IsBottomTrackLine}" Header="_Bottom Track Line" ToolTip="Add a Bottom Track line to the plot.  This line represents the depth." />
                 <Separator />
                 <MenuItem IsCheckable="True" IsChecked="{Binding IsMarkBadBelowBottom}" Header="_Mark Bad Below Bottom" ToolTip="Mark all data below the bottom depth bad." />
+                <Separator />
+                <MenuItem IsCheckable="True" IsChecked="{Binding IsRemoveShipSpeed}" Header="_Remove Ship Speed" ToolTip="Remove the ship speed from the Water Velocity." />
             </MenuItem>
             <MenuItem Header="_Selected Files" ItemsSource="{Binding ProjectFileList}">
                 <MenuItem.Resources>

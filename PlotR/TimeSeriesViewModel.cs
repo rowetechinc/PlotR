@@ -150,6 +150,20 @@ namespace PlotR
 
         #endregion
 
+        #region Variables
+
+        /// <summary>
+        /// Backup value for Bottom Track East Velocity.
+        /// </summary>
+        double _backupBtEast;
+
+        /// <summary>
+        /// Backup value for Bottom Track North Velocity.
+        /// </summary>
+        double _backupBtNorth;
+
+        #endregion
+
         #region Properies
 
         #region Series List
@@ -262,6 +276,30 @@ namespace PlotR
 
         #endregion
 
+        #region Flip Plot
+
+        /// <summary>
+        /// Flip the plot.
+        /// </summary>
+        private bool _IsFlipPlot;
+        /// <summary>
+        /// Flip the plot.
+        /// </summary>
+        public bool IsFlipPlot
+        {
+            get { return _IsFlipPlot; }
+            set
+            {
+                _IsFlipPlot = value;
+                NotifyOfPropertyChange(() => IsFlipPlot);
+
+                // Replot data
+                ReplotData();
+            }
+        }
+
+        #endregion
+
         #endregion
 
         #region Commands
@@ -288,13 +326,19 @@ namespace PlotR
 
             SelectedBeam = 0;
             SelectedBin = 0;
+            _backupBtNorth = DataHelper.BAD_VELOCITY;
+            _backupBtEast = DataHelper.BAD_VELOCITY;
+
+            _IsFlipPlot = false;
+            NotifyOfPropertyChange(() => IsFlipPlot);
 
             // Add a base set of data to the time series
             SetupLists();
 
-            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 0, Color = OxyColors.Red });
-            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 1, Color = OxyColors.Green });
-            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.Magnitude, Beam = 0, Bin = 2, Color = OxyColors.Blue });
+            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.BottomTrackRange, Beam = 0, Bin = 0, Color = OxyColors.Red });
+            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.BottomTrackRange, Beam = 1, Bin = 0, Color = OxyColors.Green });
+            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.BottomTrackRange, Beam = 2, Bin = 0, Color = OxyColors.Blue });
+            SeriesList.Add(new SeriesInfo() { PlotType = PlotDataType.BottomTrackRange, Beam = 3, Bin = 0, Color = OxyColors.Orange });
 
             // Add Series Command commands
             this.AddSeriesCommand = ReactiveCommand.Create(() => AddSeries());
@@ -554,21 +598,10 @@ namespace PlotR
             temp.Axes.Add(new LinearAxis
             {
                 Position = AxisPosition.Bottom,
-                //MajorStep = 1,
-                //Minimum = 0,
-                //Maximum = _maxDataSets,
-                //TicklineColor = OxyColors.White,
-                //MajorGridlineStyle = LineStyle.Solid,
-               // MinorGridlineStyle = LineStyle.Solid,
-               // MajorGridlineColor = OxyColor.FromAColor(40, OxyColors.White),
-                //MinorGridlineColor = OxyColor.FromAColor(20, OxyColors.White),
                 TickStyle = OxyPlot.Axes.TickStyle.Inside,                               // Put tick lines inside the plot
                 MinimumPadding = 0,                                                 // Start at axis edge   
                 MaximumPadding = 0,                                                 // Start at axis edge
-                //IsAxisVisible = true,
-                //MajorStep = 1,
                 Unit = "ENS"
-
             });
 
             return temp;
@@ -622,10 +655,8 @@ namespace PlotR
 
                             // Update the series list with the number of ensembles
                             seriesInfo.NumEnsembles = data.Data.Count;
-                            //NotifyOfPropertyChange(() => SeriesList);
 
                             // If there is no data, do not plot
-
                             if (data != null)
                             {
                                 // Update status
@@ -667,17 +698,77 @@ namespace PlotR
         /// <param name="data"></param>
         private void PlotSeriesData(SeriesData data)
         {
+            Plot.Axes.Clear();
+
+            // Add bottom ensemble axis
+            Plot.Axes.Add(new LinearAxis
+            {
+                Position = AxisPosition.Bottom,
+                TickStyle = OxyPlot.Axes.TickStyle.Inside,                               // Put tick lines inside the plot
+                MinimumPadding = 0,                                                 // Start at axis edge   
+                MaximumPadding = 0,                                                 // Start at axis edge
+                Unit = "ENS"
+            });
+
             // Create the line title
             string title = "";
             switch (data.Info.PlotType)
             {
                 case PlotDataType.Magnitude:
+                    title = string.Format("{0} Bin[{1}]", data.Info.PlotType, data.Info.Bin);
+                    Plot.Title = "Water Magnitude";
+                    Plot.Axes.Add(new LinearAxis
+                    {
+                        StartPosition = 0,
+                        EndPosition = 1,
+                        Position = AxisPosition.Left,
+                        Unit = "m/s"
+                    });
+                    break;
                 case PlotDataType.Direction:
                     title = string.Format("{0} Bin[{1}]", data.Info.PlotType, data.Info.Bin);
+                    Plot.Title = "Water Direction";
+                    Plot.Axes.Add(new LinearAxis
+                    {
+                        StartPosition = 0,
+                        EndPosition = 1,
+                        Position = AxisPosition.Left,
+                        Unit = "degrees"
+                    });
+                    break;
+                case PlotDataType.BottomTrackRange:
+                    title = string.Format("{0} Beam[{1}]", data.Info.PlotType, data.Info.Beam);
+                    Plot.Title = "Bottom Track Range";
+                    Plot.Axes.Add(new LinearAxis
+                    {
+                        StartPosition = 1,
+                        EndPosition = 0,
+                        Position = AxisPosition.Left,
+                        Unit = "m"
+                    });
+                    break;
+                case PlotDataType.BottomTrackEarthVelocity:
+                    title = string.Format("{0} Beam[{1}]", data.Info.PlotType, data.Info.Beam);
+                    Plot.Title = "Bottom Track Earth Velocity";
+                    Plot.Axes.Add(new LinearAxis
+                    {
+                        StartPosition = 0,
+                        EndPosition = 1,
+                        Position = AxisPosition.Left,
+                        Unit = "m/s"
+                    });
                     break;
                 case PlotDataType.Amplitude:
                 default:
                     title = string.Format("{0} Bin[{1}] Beam[{2}]", data.Info.PlotType, data.Info.Bin, data.Info.Beam);
+                    Plot.Title = "Amplitude";
+                    Plot.Axes.Add(new LinearAxis
+                    {
+                        StartPosition = 0,
+                        EndPosition = 1,
+                        Position = AxisPosition.Left,
+                        Unit = "dB"
+                    });
                     break;
             }
 
@@ -782,6 +873,9 @@ namespace PlotR
                 case PlotDataType.Amplitude:
                     datasetColumnName = "AmplitudeDS";              // Amplitude data
                     break;
+                case PlotDataType.BottomTrackRange:
+                    datasetColumnName = "BottomTrackDS";            // Bottom Track Range data
+                    break;
                 default:
                     datasetColumnName = "EarthVelocityDS";
                     break;
@@ -824,6 +918,8 @@ namespace PlotR
         {
             // Init list
             int ensIndex = 0;
+            _backupBtEast = DataHelper.BAD_VELOCITY;
+            _backupBtNorth = DataHelper.BAD_VELOCITY;
 
             // Init the new series data
             SeriesData seriesData = new SeriesData();
@@ -921,6 +1017,10 @@ namespace PlotR
                     return ParseDirData(reader, seriesInfo.Bin);
                 case PlotDataType.Amplitude:
                     return ParseAmpData(reader, seriesInfo.Bin, seriesInfo.Beam);
+                case PlotDataType.BottomTrackRange:
+                    return ParseBtRangeData(reader, seriesInfo.Beam);
+                case PlotDataType.BottomTrackEarthVelocity:
+                    return ParseBtEarthVelData(reader, seriesInfo.Beam);
                 default:
                     return 0.0;
             }
@@ -936,22 +1036,24 @@ namespace PlotR
         {
             try
             {
-                // Get the earth data as a JSON string
-                string jsonEarth = reader["EarthVelocityDS"].ToString();
+                // Get the data
+                DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, true, false);
 
-                if (!string.IsNullOrEmpty(jsonEarth))
+                // Store the backup value
+                if (velMagDir.IsBtVelGood)
                 {
-                    // Convert to a JSON object
-                    JObject ensEarth = JObject.Parse(jsonEarth);
-
-                    // Get the number of bins
-                    int numBins = ensEarth["NumElements"].ToObject<int>();
-
-                    // Get the velocity vector magntidue from the JSON object and add it to the array
-                    double data = ensEarth["VelocityVectors"][bin]["Magnitude"].ToObject<double>();
-
-                    return data;
+                    _backupBtEast = velMagDir.BtEastVel;
+                    _backupBtNorth = velMagDir.BtNorthVel;
                 }
+
+                if (bin < velMagDir.Magnitude.Length)
+                {
+                    if (Math.Round(velMagDir.Magnitude[bin], 3) != DataHelper.BAD_VELOCITY)
+                    {
+                        return velMagDir.Magnitude[bin];
+                    }
+                }
+
 
                 return 0.0;
             }
@@ -972,21 +1074,22 @@ namespace PlotR
         {
             try
             {
-                // Get the earth data as a JSON string
-                string jsonEarth = reader["EarthVelocityDS"].ToString();
+                // Get the data
+                DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, true, false);
 
-                if (!string.IsNullOrEmpty(jsonEarth))
+                // Store the backup value
+                if (velMagDir.IsBtVelGood)
                 {
-                    // Convert to a JSON object
-                    JObject ensEarth = JObject.Parse(jsonEarth);
+                    _backupBtEast = velMagDir.BtEastVel;
+                    _backupBtNorth = velMagDir.BtNorthVel;
+                }
 
-                    // Get the number of bins
-                    int numBins = ensEarth["NumElements"].ToObject<int>();
-
-                    // Get the velocity vector magntidue from the JSON object and add it to the array
-                    double data = ensEarth["VelocityVectors"][bin]["DirectionXNorth"].ToObject<double>();
-
-                    return data;
+                if (bin < velMagDir.Magnitude.Length)
+                {
+                    if (Math.Round(velMagDir.DirectionYNorth[bin], 3) != DataHelper.BAD_VELOCITY)
+                    {
+                        return velMagDir.DirectionYNorth[bin];
+                    }
                 }
 
                 return 0.0;
@@ -1031,6 +1134,84 @@ namespace PlotR
             catch (Exception e)
             {
                 Debug.WriteLine("Error parsing the Amplitude data row", e);
+                return 0.0;
+            }
+        }
+
+        /// <summary>
+        /// Process the row from the DB.  A row represents an ensemble.
+        /// </summary>
+        /// <param name="reader">Database connection data.</param>
+        /// <param name="beam">Beam number</param>
+        /// <returns>Bottom Track Range data for a row.</returns>
+        private double ParseBtRangeData(DbDataReader reader, int beam)
+        {
+            try
+            {
+                // Get the earth data as a JSON string
+                string json = reader["BottomTrackDS"].ToString();
+
+                if (!string.IsNullOrEmpty(json))
+                {
+                    // Convert to a JSON object
+                    JObject ens = JObject.Parse(json);
+
+                    // Get the number of bins
+                    int numBeams = ens["NumBeams"].ToObject<int>();
+
+                    if (beam < numBeams)
+                    {
+                        // Get the velocity vector magntidue from the JSON object and add it to the array
+                        double data = ens["Range"][beam].ToObject<double>();
+
+                        return data;
+                    }
+                }
+
+                return 0.0;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Error parsing the Bottom Track Range data row", e);
+                return 0.0;
+            }
+        }
+
+        /// <summary>
+        /// Process the row from the DB.  A row represents an ensemble.
+        /// </summary>
+        /// <param name="reader">Database connection data.</param>
+        /// <param name="beam">Beam number</param>
+        /// <returns>Bottom Track Earth Velocity data for a row.</returns>
+        private double ParseBtEarthVelData(DbDataReader reader, int beam)
+        {
+            try
+            {
+                // Get the earth data as a JSON string
+                string json = reader["BottomTrackDS"].ToString();
+
+                if (!string.IsNullOrEmpty(json))
+                {
+                    // Convert to a JSON object
+                    JObject ens = JObject.Parse(json);
+
+                    // Get the number of bins
+                    int numBeams = ens["NumBeams"].ToObject<int>();
+
+                    if (beam < numBeams)
+                    {
+                        // Get the velocity vector magntidue from the JSON object and add it to the array
+                        double data = ens["EarthVelocity"][beam].ToObject<double>();
+
+                        return data;
+                    }
+                }
+
+                return 0.0;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Error parsing the Bottom Track Earth Velocity data row", e);
                 return 0.0;
             }
         }

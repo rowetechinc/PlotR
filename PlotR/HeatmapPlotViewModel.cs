@@ -109,6 +109,16 @@ namespace PlotR
         /// </summary>
         LinearAxis _binAxis;
 
+        /// <summary>
+        /// Backup Bottom Track East value.
+        /// </summary>
+        double _backupBtEast;
+
+        /// <summary>
+        /// Backup Bottom Track North Value.
+        /// </summary>
+        double _backupBtNorth;
+
         #endregion
 
         #region Properties
@@ -254,6 +264,26 @@ namespace PlotR
 
         #endregion
 
+        /// <summary>
+        /// Remove the ship speed.
+        /// </summary>
+        private bool _IsRemoveShipSpeed;
+        /// <summary>
+        /// Remove the ship speed.
+        /// </summary>
+        public bool IsRemoveShipSpeed
+        {
+            get { return _IsRemoveShipSpeed; }
+            set
+            {
+                _IsRemoveShipSpeed = value;
+                NotifyOfPropertyChange(() => IsRemoveShipSpeed);
+
+                // Replot data
+                ReplotData(SelectedPlotType);
+            }
+        }
+
         #region Bottom Track Line
 
         /// <summary>
@@ -398,13 +428,22 @@ namespace PlotR
             // Initialize
             CurrentMinValue = 0.0;
             CurrentMaxValue = 2.0;
+            _backupBtEast = DataHelper.BAD_VELOCITY;
+            _backupBtNorth = DataHelper.BAD_VELOCITY;
 
             // Bottom Track Line
-            IsBottomTrackLine = true;
+            _IsBottomTrackLine = true;
+            NotifyOfPropertyChange(() => IsBottomTrackLine);
 
             // Mark Bad Below Bottom
-            IsMarkBadBelowBottom = true;
+            _IsMarkBadBelowBottom = true;
+            NotifyOfPropertyChange(() => IsMarkBadBelowBottom);
             _prevGoodBottomBin = BAD_BOTTOM_BIN;
+
+            // Remove Ship Speed
+            _IsRemoveShipSpeed = true;
+            NotifyOfPropertyChange(() => IsRemoveShipSpeed);
+
         }
 
         #region Load Project
@@ -446,6 +485,8 @@ namespace PlotR
         {
             //StatusProgressMax = TotalNumEnsembles;
             StatusProgress = 0;
+            _backupBtEast = DataHelper.BAD_VELOCITY;
+            _backupBtNorth = DataHelper.BAD_VELOCITY;
 
             // Get the data to plot
             return QueryDataFromDb(cnn, selectedPlotType, minIndex, maxIndex);
@@ -625,46 +666,17 @@ namespace PlotR
         {
             try
             {
-                // Get Range Bin if marking bad below bottom
-                int rangeBin = BAD_BOTTOM_BIN;
-                if (IsMarkBadBelowBottom)
+                // Get data
+                DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, _IsRemoveShipSpeed, _IsMarkBadBelowBottom);
+
+                // Store the backup value
+                if (velMagDir.IsBtVelGood)
                 {
-                    rangeBin = GetRangeBin(reader);
+                    _backupBtEast = velMagDir.BtEastVel;
+                    _backupBtNorth = velMagDir.BtNorthVel;
                 }
 
-                // Get the earth data as a JSON string
-                string jsonEarth = reader["EarthVelocityDS"].ToString();
-
-                if (!string.IsNullOrEmpty(jsonEarth))
-                {
-                    // Convert to a JSON object
-                    JObject ensEarth = JObject.Parse(jsonEarth);
-
-                    // Get the number of bins
-                    int numBins = ensEarth["NumElements"].ToObject<int>();
-                    //Debug.WriteLine("Num Bins: " + numBins);
-
-                    //Debug.WriteLine(ensEarth["VelocityVectors"][0]["Magnitude"]);
-                    double[] data = new double[numBins];
-                    for (int bin = 0; bin < numBins; bin++)
-                    {
-                        // Check if Mark bad below bottom
-                        if (_IsMarkBadBelowBottom && rangeBin > BAD_BOTTOM_BIN && bin >= rangeBin)
-                        {
-                            // Mark Bad Below Bottom
-                            data[bin] = BAD_VELOCITY;
-                        }
-                        else
-                        {
-                            // Get the velocity vector magntidue from the JSON object and add it to the array
-                            data[bin] = ensEarth["VelocityVectors"][bin]["Magnitude"].ToObject<double>();
-                        }
-                    }
-
-                    return data;
-                }
-
-                return null;
+                return velMagDir.Magnitude;
             }
             catch (Exception e)
             {
@@ -682,46 +694,17 @@ namespace PlotR
         {
             try
             {
-                // Get Range Bin if marking bad below bottom
-                int rangeBin = BAD_BOTTOM_BIN;
-                if (IsMarkBadBelowBottom)
+                // Get data
+                DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, _IsRemoveShipSpeed, _IsMarkBadBelowBottom);
+
+                // Store the backup value
+                if (velMagDir.IsBtVelGood)
                 {
-                    rangeBin = GetRangeBin(reader);
+                    _backupBtEast = velMagDir.BtEastVel;
+                    _backupBtNorth = velMagDir.BtNorthVel;
                 }
 
-                // Get the earth data as a JSON string
-                string jsonEarth = reader["EarthVelocityDS"].ToString();
-
-                if (!string.IsNullOrEmpty(jsonEarth))
-                {
-                    // Convert to a JSON object
-                    JObject ensEarth = JObject.Parse(jsonEarth);
-
-                    // Get the number of bins
-                    int numBins = ensEarth["NumElements"].ToObject<int>();
-                    //Debug.WriteLine("Num Bins: " + numBins);
-
-                    //Debug.WriteLine(ensEarth["VelocityVectors"][0]["Magnitude"]);
-                    double[] data = new double[numBins];
-                    for (int bin = 0; bin < numBins; bin++)
-                    {
-                        // Check if Mark bad below bottom
-                        if (_IsMarkBadBelowBottom && rangeBin > BAD_BOTTOM_BIN && bin >= rangeBin)
-                        {
-                            // Mark Bad Below Bottom
-                            data[bin] = BAD_VELOCITY;
-                        }
-                        else
-                        {
-                            // Get the velocity vector magntidue from the JSON object and add it to the array
-                            data[bin] = ensEarth["VelocityVectors"][bin]["DirectionYNorth"].ToObject<double>();
-                        }
-                    }
-
-                    return data;
-                }
-
-                return null;
+                return velMagDir.DirectionYNorth;
             }
             catch (Exception e)
             {
@@ -743,7 +726,19 @@ namespace PlotR
                 int rangeBin = BAD_BOTTOM_BIN;
                 if(IsMarkBadBelowBottom)
                 {
-                    rangeBin = GetRangeBin(reader);
+                    //rangeBin = GetRangeBin(reader);
+                    rangeBin = DataHelper.GetRangeBin(reader);
+                    if (rangeBin == DataHelper.BAD_BOTTOM_BIN && _prevGoodBottomBin != DataHelper.BAD_BOTTOM_BIN)
+                    {
+                        // Use the backup value if bad
+                        rangeBin = _prevGoodBottomBin;
+                    }
+
+                    // Store as backup
+                    if (rangeBin != DataHelper.BAD_BOTTOM_BIN)
+                    {
+                        _prevGoodBottomBin = rangeBin;
+                    }
                 }
 
                 // Get the data as a JSON string
@@ -1190,7 +1185,20 @@ namespace PlotR
                 int numBins = ensData["NumBins"].ToObject<int>();
 
                 // Update the bottom track line series
-                int rangeBin = GetRangeBin(reader);
+                //int rangeBin = GetRangeBin(reader);
+                int rangeBin = DataHelper.GetRangeBin(reader);
+                if (rangeBin == DataHelper.BAD_BOTTOM_BIN && _prevGoodBottomBin != DataHelper.BAD_BOTTOM_BIN)
+                {
+                    // Use the backup value if bad
+                    rangeBin = _prevGoodBottomBin;
+                }
+
+                // Store as backup
+                if (rangeBin != DataHelper.BAD_BOTTOM_BIN)
+                {
+                    _prevGoodBottomBin = rangeBin;
+                }
+
 
                 // Only plot the range if it is found
                 if (rangeBin > 0)
@@ -1217,113 +1225,6 @@ namespace PlotR
             {
                 Debug.WriteLine("Error parsing Bottom Track data", e);
                 return;
-            }
-        }
-
-        #endregion
-
-        #region Range Bin
-
-        /// <summary>
-        /// Get the bin that represent the depth of the water.
-        /// </summary>
-        /// <param name="ranges">Bottom Track ranges.</param>
-        /// <param name="binSize">Bin Size.</param>
-        /// <param name="firstBin">First bin position (Blank)</param>
-        /// <returns>Bin of the water depth.</returns>
-        private int GetRangeBin(DbDataReader reader)
-        {
-            try
-            {
-                // Get the data as a JSON string
-                string jsonEnsemble = reader["EnsembleDS"].ToString();
-                string jsonBT = reader["BottomTrackDS"].ToString();
-                string jsonAncillary = reader["AncillaryDS"].ToString();
-
-                if (string.IsNullOrEmpty(jsonEnsemble) || string.IsNullOrEmpty(jsonBT) || string.IsNullOrEmpty(jsonAncillary))
-                {
-                    // Check if we have a backup value
-                    if (_prevGoodBottomBin != BAD_BOTTOM_BIN)
-                    {
-                        return _prevGoodBottomBin;
-                    }
-                    else
-                    {
-                        // No range found
-                        return 0;
-                    }
-                }
-
-                // Convert to JSON objects
-                JObject ensData = JObject.Parse(jsonEnsemble);
-                JObject ancData = JObject.Parse(jsonAncillary);
-                JObject btData = JObject.Parse(jsonBT);
-
-                // Get Bin Size and First bin
-                double binSize = ancData["BinSize"].ToObject<double>();
-                double firstBin = ancData["FirstBinRange"].ToObject<double>();
-                int numBins = ensData["NumBins"].ToObject<int>();
-
-                // Get Bottom Track Ranges
-                double[] ranges = btData["Range"].ToObject<double[]>();
-
-                int bin = 0;
-
-                // Get the average range
-                double avg = 0.0;
-                int avgCt = 0;
-                foreach (var range in ranges)
-                {
-                    if (range > 0.0)
-                    {
-                        avg += range;
-                        avgCt++;
-                    }
-                }
-
-                // Verify we found good range
-                if (avgCt > 0)
-                {
-                    // Calculate the average Range
-                    double avgRange = avg / avgCt;
-
-                    // Remove the Blank distance
-                    avgRange -= firstBin;
-
-                    if (avgRange > 0.0)
-                    {
-                        // Divide by the bin size and round to int
-                        double binDepth = avgRange / binSize;
-
-                        // Set the Bottom Bin
-                        int bottomBin = (int)Math.Round(binDepth);
-
-                        // Store as a backup value
-                        _prevGoodBottomBin = bottomBin;
-
-                        return bottomBin;
-                    }
-                }
-                else
-                {
-                    // Check if we have a backup value
-                    if (_prevGoodBottomBin != BAD_BOTTOM_BIN)
-                    {
-                        return _prevGoodBottomBin;
-                    }
-                    else
-                    {
-                        // No range found and no backup
-                        return 0;
-                    }
-                }
-
-                return bin;
-            }
-            catch (Exception e)
-            {
-                Debug.WriteLine("Error getting the Range bin.", e);
-                return 0;
             }
         }
 
