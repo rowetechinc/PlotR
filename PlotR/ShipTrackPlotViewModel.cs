@@ -275,6 +275,28 @@ namespace PlotR
             }
         }
 
+        /// <summary>
+        /// Use GPS speed as a backup value.
+        /// </summary>
+        private bool _IsUseGpsSpeedBackup;
+        /// <summary>
+        /// Use GPS speed as a backup value.
+        /// </summary>
+        public bool IsUseGpsSpeedBackup
+        {
+            get { return _IsUseGpsSpeedBackup; }
+            set
+            {
+                _IsUseGpsSpeedBackup = value;
+                NotifyOfPropertyChange(() => IsUseGpsSpeedBackup);
+
+                ReplotData();
+            }
+        }
+
+
+        
+
         #endregion
 
         #endregion
@@ -320,6 +342,7 @@ namespace PlotR
             Zoom = 1;
             _IsPlotWaterLine = true;
             _IsMarkBadBelowBottom = true;
+            _IsUseGpsSpeedBackup = true;
             _MagScale = 75;
             _MinValue = 0.0;
             _MaxValue = 2.0;
@@ -328,6 +351,7 @@ namespace PlotR
             NotifyOfPropertyChange(() => MaxValue);
             NotifyOfPropertyChange(() => IsPlotWaterLine);
             NotifyOfPropertyChange(() => IsMarkBadBelowBottom);
+            NotifyOfPropertyChange(() => IsUseGpsSpeedBackup);
 
             ColorMapCanvas = ColorHM.GetColorMapLegend(_MinValue, _MaxValue);       // Set the color map canvas
 
@@ -427,7 +451,10 @@ namespace PlotR
         /// <param name="maxIndex">Maximum Index.</param>
         public override void ReplotData(int minIndex, int maxIndex)
         {
-            DrawPlot(minIndex, maxIndex);
+            Application.Current.Dispatcher.Invoke((Action)delegate
+            {
+                DrawPlot(minIndex, maxIndex);
+            });
         }
 
         /// <summary>
@@ -545,7 +572,7 @@ namespace PlotR
             numEnsembles = lo.Limit;
 
             // Get data
-            string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,EarthVelocityDS,{0} FROM tblEnsemble WHERE ({1} IS NOT NULL) {2} {3} LIMIT {4} OFFSET {5};",
+            string query = string.Format("SELECT ID,EnsembleNum,DateTime,EnsembleDS,AncillaryDS,BottomTrackDS,EarthVelocityDS,NmeaDS,{0} FROM tblEnsemble WHERE ({1} IS NOT NULL) {2} {3} LIMIT {4} OFFSET {5};",
                                             datasetColumnName,
                                             datasetColumnName,
                                             GenerateQueryFileList(),
@@ -600,7 +627,7 @@ namespace PlotR
                     string ensNum = reader["EnsembleNum"].ToString();
 
                     // Plot the lat/lon
-                    string lat_lon = StatusMsg = reader["Position"].ToString();
+                    string lat_lon = reader["Position"].ToString();
 
                     //// Get the range bin
                     //int rangeBin = DataHelper.GetRangeBin(reader);
@@ -618,6 +645,51 @@ namespace PlotR
 
                     //    //Debug.WriteLine(string.Format("Avg Dir: {0} Avg Mag: {1}", avgDir, avgMag));
                     //}
+
+                    if (IsUseGpsSpeedBackup)
+                    {
+                        // Get the NMEA data
+                        string jsonNmea = reader["NmeaDS"].ToString();
+                        DataHelper.GpsData gpsData = null;
+                        if (!string.IsNullOrEmpty(jsonNmea))
+                        {
+                            // Convert to a JSON object
+                            JObject ensNmea = JObject.Parse(jsonNmea);
+                            string[] nmeaStrings = ensNmea["NmeaStrings"].ToObject<string[]>();
+
+                            if (nmeaStrings != null && nmeaStrings.Length > 0)
+                            {
+                                gpsData = DataHelper.DecodeNmea(nmeaStrings);
+                            }
+                        }
+
+                        // Check for a backup value for BT East and North speed from the GPS
+                        if (Math.Round(backupBtEast, 4) == BAD_VELOCITY)
+                        {
+                            // Check if we have a valid GPS speed
+                            if (gpsData != null && gpsData.GPVTG != null && gpsData.GPHDT != null && gpsData.GPVTG.IsValid && gpsData.GPHDT.IsValid)
+                            {
+                                // Convert the speed and east and north component
+                                // Speed from the GPS
+                                double speed = gpsData.GPVTG.Speed.ToMetersPerSecond().Value;
+
+                                // Calculate the East and North component of the GPS speed
+                                backupBtEast = Convert.ToSingle(speed * Math.Sin(gpsData.GPHDT.Heading.ToRadians().Value));
+                                backupBtNorth = Convert.ToSingle(speed * Math.Cos(gpsData.GPHDT.Heading.ToRadians().Value));
+                            }
+                            else if(gpsData != null && gpsData.GPHDT != null && gpsData.GPRMC != null && gpsData.GPRMC.IsValid && gpsData.GPHDT.IsValid)
+                            {
+                                // Convert the speed and east and north component
+                                // Speed from the GPS
+                                double speed = gpsData.GPRMC.Speed.ToMetersPerSecond().Value;
+
+                                // Calculate the East and North component of the GPS speed
+                                backupBtEast = Convert.ToSingle(speed * Math.Sin(gpsData.GPHDT.Heading.ToRadians().Value));
+                                backupBtNorth = Convert.ToSingle(speed * Math.Cos(gpsData.GPHDT.Heading.ToRadians().Value));
+                            }
+                        }
+                    }
+
 
                     // Get the velocity
                     DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, backupBtEast, backupBtNorth, true, true);

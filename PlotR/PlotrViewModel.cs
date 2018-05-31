@@ -305,6 +305,11 @@ namespace PlotR
             {
                 await Task.Run(() => TimeseriesPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
             }
+
+            if (ShipTrackPlot != null)
+            {
+                await Task.Run(() => ShipTrackPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
+            }
         }
 
         /// <summary>
@@ -326,6 +331,11 @@ namespace PlotR
             {
                 await Task.Run(() => TimeseriesPlot.ReplotData(min, max));
             }
+
+            if (ShipTrackPlot != null)
+            {
+                await Task.Run(() => ShipTrackPlot.ReplotData(min, max));
+            }
         }
 
         /// <summary>
@@ -344,6 +354,11 @@ namespace PlotR
             if (TimeseriesPlot != null)
             {
                 await Task.Run(() => TimeseriesPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
+            }
+
+            if (ShipTrackPlot != null)
+            {
+                await Task.Run(() => ShipTrackPlot.ReplotData(_CurrentMinValue, _CurrentMaxValue));
             }
         }
 

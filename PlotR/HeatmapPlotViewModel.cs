@@ -946,7 +946,9 @@ namespace PlotR
                             sqlite_conn.Open();
 
                             // Get total number of ensembles in the project
-                            await Task.Run(() => TotalNumEnsembles = GetNumEnsembles(sqlite_conn));
+                            // Run as a task to allow the UI to be updated
+                            // Use await to keep the sqlite connection open
+                            await Task.Run(() =>TotalNumEnsembles = GetNumEnsembles(sqlite_conn));
 
                             // If this is the first time loading
                             // show the entire plot
@@ -961,6 +963,8 @@ namespace PlotR
                             }
 
                             // Get the magnitude data
+                            // Run as a task to allow the UI to be updated
+                            // Use await to keep the sqlite connection open
                             await Task.Run(() => data = GetData(sqlite_conn, TotalNumEnsembles, selectedPlotType, minIndex, maxIndex));
 
                             // Close connection

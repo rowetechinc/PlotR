@@ -1,8 +1,10 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using DotSpatial.Positioning;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -124,6 +126,61 @@ namespace PlotR
             }
         }
 
+        public class GpsData
+        {
+            /// <summary>
+            /// VTG message for GPS speed.
+            /// </summary>
+            public GpvtgSentence GPVTG { get; set; }
+
+            /// <summary>
+            /// GGA message for the latitude and longitude.
+            /// </summary>
+            public GpggaSentence GPGGA { get; set; }
+
+            /// <summary>
+            /// HDT message for the heading.
+            /// </summary>
+            public GphdtSentence GPHDT { get; set; }
+
+            /// <summary>
+            /// RMC message.
+            /// </summary>
+            public GprmcSentence GPRMC { get; set; }
+
+            /// <summary>
+            /// GPS Position (Lat and Lon)
+            /// </summary>
+            public Position Position { get; set; }
+
+            /// <summary>
+            /// GPS Bearing value.
+            /// </summary>
+            public Azimuth Bearing { get; set; }
+
+            /// <summary>
+            /// GPS Heading value.
+            /// </summary>
+            public Azimuth Heading { get; set; }
+
+            /// <summary>
+            /// GPS Speed value.
+            /// </summary>
+            public Speed Speed { get; set; }
+
+            /// <summary>
+            /// Initialize to null.
+            /// </summary>
+            public GpsData()
+            {
+                GPVTG = null;
+                GPHDT = null;
+                GPGGA = null;
+                GPRMC = null;
+            }
+        }
+
+
         #endregion
 
 
@@ -181,7 +238,7 @@ namespace PlotR
             string jsonEarthVel = reader["EarthVelocityDS"].ToString();
 
             // Verify we have all the data
-            if (string.IsNullOrEmpty(jsonEnsemble) || string.IsNullOrEmpty(jsonBT) || string.IsNullOrEmpty(jsonAncillary) || string.IsNullOrEmpty(jsonEarthVel))
+            if (string.IsNullOrEmpty(jsonEnsemble)  || string.IsNullOrEmpty(jsonAncillary) || string.IsNullOrEmpty(jsonEarthVel))
             {
                 // No range found
                 return null;
@@ -190,7 +247,6 @@ namespace PlotR
             // Convert to JSON objects
             JObject ensData = JObject.Parse(jsonEnsemble);
             JObject ancData = JObject.Parse(jsonAncillary);
-            JObject btData = JObject.Parse(jsonBT);
             JObject earthVelData = JObject.Parse(jsonEarthVel);
 
             // Get Bin Size and First bin
@@ -198,7 +254,6 @@ namespace PlotR
             double firstBin = ancData["FirstBinRange"].ToObject<double>();
             int numBins = ensData["NumBins"].ToObject<int>();
             double[,] earthVel = earthVelData["EarthVelocityData"].ToObject<double[,]>();
-            double[] btEarthVel = btData["EarthVelocity"].ToObject<double[]>();
 
             // Create the array for the result
             VelocityMagDir result = new VelocityMagDir(numBins);
@@ -230,7 +285,9 @@ namespace PlotR
                 for (int bin = 0; bin < numBins; bin++)
                 {
                     // Mark bad below bottom
-                    if (isMarkBadBelowBottom && bin >= result.RangeBin)
+                    if (isMarkBadBelowBottom &&                 // Check if turned on
+                        result.RangeBin != BAD_BOTTOM_BIN &&    // Verify a good range bin was found
+                        bin >= result.RangeBin)                 // Check if this bin is below the bottom
                     {
                         result.Magnitude[bin] = BAD_VELOCITY;
                         result.DirectionXNorth[bin] = BAD_VELOCITY;
@@ -252,8 +309,11 @@ namespace PlotR
                         else
                         {
                             // Remove the ship speed
-                            if (isRemoveShipSpeed)
+                            if (isRemoveShipSpeed && !string.IsNullOrEmpty(jsonBT))
                             {
+                                JObject btData = JObject.Parse(jsonBT);
+                                double[] btEarthVel = btData["EarthVelocity"].ToObject<double[]>();
+
                                 // Get the Bottom Track Earth North and East velocity
                                 double btEast = 0.0;
                                 double btNorth = 0.0;
@@ -518,6 +578,87 @@ namespace PlotR
             }
 
             return avg;
+        }
+
+        #endregion
+
+        #region Decode GPS data
+
+        /// <summary>
+        /// Decode the NMEA data.
+        /// </summary>
+        /// <param name="nmeaStrings">String array containing NMEA sentences.</param>
+        /// <returns>Gps Data.</returns>
+        public static GpsData DecodeNmea(string[] nmeaStrings)
+        {
+            GpsData gpsData = new GpsData();
+
+            try
+            {
+                for(int x = 0; x < nmeaStrings.Length; x++)
+                {
+                    // Parse all the nmea setences found
+                    NmeaSentence sentence = new NmeaSentence(nmeaStrings[x]);
+
+                    // Is this a GPRMC sentence?
+                    if (sentence.CommandWord.EndsWith("RMC", StringComparison.Ordinal))
+                    {
+                        gpsData.GPRMC = new GprmcSentence(sentence.Sentence);
+                    }
+
+                    // Is this a GPHDT sentence?
+                    if (sentence.CommandWord.EndsWith("HDT", StringComparison.Ordinal))
+                    {
+                        gpsData.GPHDT = new GphdtSentence(sentence.Sentence);
+                    }
+
+                    // Is this a GPVTG sentence?
+                    if (sentence.CommandWord.EndsWith("VTG", StringComparison.Ordinal))
+                    {
+                        gpsData.GPVTG = new GpvtgSentence(sentence.Sentence);
+                    }
+
+                    // Is this a GPGGA sentence?
+                    if (sentence.CommandWord.EndsWith("GGA", StringComparison.Ordinal))
+                    {
+                        gpsData.GPGGA = new GpggaSentence(sentence.Sentence);
+                    }
+
+                    // Does this sentence support lat/long info?
+                    IPositionSentence positionSentence = sentence as IPositionSentence;
+                    if (positionSentence != null)
+                    {
+                        gpsData.Position = positionSentence.Position;
+                    }
+
+                    // Does this sentence support bearing?
+                    IBearingSentence bearingSentence = sentence as IBearingSentence;
+                    if (bearingSentence != null)
+                    {
+                        gpsData.Bearing = bearingSentence.Bearing;
+                    }
+
+                    // Does this sentence support heading?
+                    IHeadingSentence headingSentence = sentence as IHeadingSentence;
+                    if (headingSentence != null)
+                    {
+                        gpsData.Heading = headingSentence.Heading;
+                    }
+
+                    // Does this sentence support speed?
+                    ISpeedSentence speedSentence = sentence as ISpeedSentence;
+                    if (speedSentence != null)
+                    {
+                        gpsData.Speed = speedSentence.Speed;
+                    }
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Error decoding GPS data.", e);
+            }
+
+            return gpsData;
         }
 
         #endregion

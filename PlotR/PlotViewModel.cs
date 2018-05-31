@@ -741,10 +741,10 @@ namespace PlotR
             StringBuilder sb = new StringBuilder();
             foreach (var item in SubsystemConfigList)
             {
-                // If checked, add to list
+                // If checked, add to lists
                 if (item.IsChecked && !string.IsNullOrEmpty(item.Subsystem.TrimEnd('\0')))
                 {
-                    sb.Append(string.Format("(Subsystem = {0} AND CepoIndex = {1}) OR", item.Subsystem, item.CepoIndex));
+                    sb.Append(string.Format("(Subsystem = \"{0}\" AND CepoIndex = {1}) OR", item.Subsystem, item.CepoIndex));
                 }
             }
 
