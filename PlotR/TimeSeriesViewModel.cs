@@ -758,6 +758,17 @@ namespace PlotR
                         Unit = "m/s"
                     });
                     break;
+                case PlotDataType.Voltage:
+                    title = string.Format("{0}", data.Info.PlotType);
+                    Plot.Title = "Voltage";
+                    Plot.Axes.Add(new LinearAxis
+                    {
+                        StartPosition = 0,
+                        EndPosition = 1,
+                        Position = AxisPosition.Left,
+                        Unit = "volts"
+                    });
+                    break;
                 case PlotDataType.Amplitude:
                 default:
                     title = string.Format("{0} Bin[{1}] Beam[{2}]", data.Info.PlotType, data.Info.Bin, data.Info.Beam);
@@ -875,6 +886,9 @@ namespace PlotR
                     break;
                 case PlotDataType.BottomTrackRange:
                     datasetColumnName = "BottomTrackDS";            // Bottom Track Range data
+                    break;
+                case PlotDataType.Voltage:
+                    datasetColumnName = "SystemSetupDS";            // Bottom Track Range data
                     break;
                 default:
                     datasetColumnName = "EarthVelocityDS";
@@ -1021,6 +1035,8 @@ namespace PlotR
                     return ParseBtRangeData(reader, seriesInfo.Beam);
                 case PlotDataType.BottomTrackEarthVelocity:
                     return ParseBtEarthVelData(reader, seriesInfo.Beam);
+                case PlotDataType.Voltage:
+                    return ParseVoltageData(reader);
                 default:
                     return 0.0;
             }
@@ -1212,6 +1228,41 @@ namespace PlotR
             catch (Exception e)
             {
                 Debug.WriteLine("Error parsing the Bottom Track Earth Velocity data row", e);
+                return 0.0;
+            }
+        }
+
+        /// <summary>
+        /// Process the row from the DB.  A row represents an ensemble.
+        /// </summary>
+        /// <param name="reader">Database connection data.</param>
+        /// <returns>Voltage data for a row.</returns>
+        private double ParseVoltageData(DbDataReader reader)
+        {
+            try
+            {
+                // Get the earth data as a JSON string
+                string json = reader["SystemSetupDS"].ToString();
+
+                if (!string.IsNullOrEmpty(json))
+                {
+                    // Convert to a JSON object
+                    JObject ens = JObject.Parse(json);
+
+                    // Get the number of bins
+                    int numBins = ens["NumElements"].ToObject<int>();
+
+                    // Get the velocity vector magntidue from the JSON object and add it to the array
+                    double data = ens["Voltage"].ToObject<double>();
+
+                    return data;
+                }
+
+                return 0.0;
+            }
+            catch (Exception e)
+            {
+                Debug.WriteLine("Error parsing the Voltage data row", e);
                 return 0.0;
             }
         }

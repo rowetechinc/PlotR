@@ -169,6 +169,21 @@ namespace PlotR
             public Speed Speed { get; set; }
 
             /// <summary>
+            /// This value can be used as a backup ship speed for east component.
+            /// </summary>
+            public double BackupShipEast { get; set; }
+
+            /// <summary>
+            /// This value can be used as a backup ship speed for North component.
+            /// </summary>
+            public double BackupShipNorth { get; set; }
+
+            /// <summary>
+            /// Set flag if the Backup speed is good or bad.
+            /// </summary>
+            public bool IsBackShipSpeedGood { get; set; }
+
+            /// <summary>
             /// Initialize to null.
             /// </summary>
             public GpsData()
@@ -177,6 +192,9 @@ namespace PlotR
                 GPHDT = null;
                 GPGGA = null;
                 GPRMC = null;
+                BackupShipEast = 0.0;
+                BackupShipNorth = 0.0;
+                IsBackShipSpeedGood = false;
             }
         }
 
@@ -398,8 +416,6 @@ namespace PlotR
 
         #endregion
 
-        #region RangeBin
-
         #region Range Bin
 
         /// <summary>
@@ -413,10 +429,9 @@ namespace PlotR
             {
                 // Get the data as a JSON string
                 string jsonEnsemble = reader["EnsembleDS"].ToString();
-                string jsonBT = reader["BottomTrackDS"].ToString();
                 string jsonAncillary = reader["AncillaryDS"].ToString();
 
-                if (string.IsNullOrEmpty(jsonEnsemble) || string.IsNullOrEmpty(jsonBT) || string.IsNullOrEmpty(jsonAncillary))
+                if (string.IsNullOrEmpty(jsonEnsemble) || string.IsNullOrEmpty(jsonAncillary))
                 {
                     // No range found
                     return BAD_BOTTOM_BIN;
@@ -425,36 +440,20 @@ namespace PlotR
                 // Convert to JSON objects
                 JObject ensData = JObject.Parse(jsonEnsemble);
                 JObject ancData = JObject.Parse(jsonAncillary);
-                JObject btData = JObject.Parse(jsonBT);
 
                 // Get Bin Size and First bin
                 double binSize = ancData["BinSize"].ToObject<double>();
                 double firstBin = ancData["FirstBinRange"].ToObject<double>();
                 int numBins = ensData["NumBins"].ToObject<int>();
 
-                // Get Bottom Track Ranges
-                double[] ranges = btData["Range"].ToObject<double[]>();
-
                 int bin = 0;
 
-                // Get the average range
-                double avg = 0.0;
-                int avgCt = 0;
-                foreach (var range in ranges)
-                {
-                    if (range > 0.0)
-                    {
-                        avg += range;
-                        avgCt++;
-                    }
-                }
+                // Calculate the average Range
+                double avgRange = GetAverageRange(reader);
 
                 // Verify we found good range
-                if (avgCt > 0)
+                if (avgRange > 0)
                 {
-                    // Calculate the average Range
-                    double avgRange = avg / avgCt;
-
                     // Remove the Blank distance
                     avgRange -= firstBin;
 
@@ -485,6 +484,71 @@ namespace PlotR
         }
 
         #endregion
+
+        #region Average Range
+
+        /// <summary>
+        /// Get the average range.
+        /// </summary>
+        /// <param name="reader">Database reader.</param>
+        /// <returns>Average range.  0 if not found.</returns>
+        public static double GetAverageRange(DbDataReader reader)
+        {
+            try
+            {
+                // Get the data as a JSON string
+                string jsonEnsemble = reader["EnsembleDS"].ToString();
+                string jsonBT = reader["BottomTrackDS"].ToString();
+                string jsonAncillary = reader["AncillaryDS"].ToString();
+
+                if (string.IsNullOrEmpty(jsonEnsemble) || string.IsNullOrEmpty(jsonBT) || string.IsNullOrEmpty(jsonAncillary))
+                {
+                    // No range found
+                    return BAD_BOTTOM_BIN;
+                }
+
+                // Convert to JSON objects
+                JObject ensData = JObject.Parse(jsonEnsemble);
+                JObject ancData = JObject.Parse(jsonAncillary);
+                JObject btData = JObject.Parse(jsonBT);
+
+                // Get Bin Size and First bin
+                double binSize = ancData["BinSize"].ToObject<double>();
+                double firstBin = ancData["FirstBinRange"].ToObject<double>();
+                int numBins = ensData["NumBins"].ToObject<int>();
+
+                // Get Bottom Track Ranges
+                double[] ranges = btData["Range"].ToObject<double[]>();
+
+                // Get the average range
+                double avg = 0.0;
+                int avgCt = 0;
+                foreach (var range in ranges)
+                {
+                    if (range > 0.0)
+                    {
+                        avg += range;
+                        avgCt++;
+                    }
+                }
+
+                // Verify we found good range
+                if (avgCt > 0)
+                {
+                    // Calculate the average Range
+                    return avg / avgCt;
+                }
+                else
+                {
+                    return 0.0;
+                }
+            }
+            catch(Exception e)
+            {
+                Debug.WriteLine("Error getting the average range.", e);
+                return 0.0;
+            }
+        }
 
         #endregion
 
@@ -583,6 +647,55 @@ namespace PlotR
         #endregion
 
         #region Decode GPS data
+
+        /// <summary>
+        /// Get the GPS data from the ensemble using the database reader.
+        /// </summary>
+        /// <param name="reader">Database reader.</param>
+        /// <returns>If NMEA data exist, pass the data, or return NULL.</returns>
+        public static GpsData GetGpsData(DbDataReader reader)
+        {
+            // Get the NMEA data
+            string jsonNmea = reader["NmeaDS"].ToString();
+            DataHelper.GpsData gpsData = null;
+            if (!string.IsNullOrEmpty(jsonNmea))
+            {
+                // Convert to a JSON object
+                JObject ensNmea = JObject.Parse(jsonNmea);
+                string[] nmeaStrings = ensNmea["NmeaStrings"].ToObject<string[]>();
+
+                if (nmeaStrings != null && nmeaStrings.Length > 0)
+                {
+                    gpsData = DataHelper.DecodeNmea(nmeaStrings);
+                }
+            }
+
+            // Check if we have a valid GPS speed
+            if (gpsData != null && gpsData.GPVTG != null && gpsData.GPHDT != null && gpsData.GPVTG.IsValid && gpsData.GPHDT.IsValid)
+            {
+                // Convert the speed and east and north component
+                // Speed from the GPS
+                double speed = gpsData.GPVTG.Speed.ToMetersPerSecond().Value;
+
+                // Calculate the East and North component of the GPS speed
+                gpsData.BackupShipEast = Convert.ToSingle(speed * Math.Sin(gpsData.GPHDT.Heading.ToRadians().Value));
+                gpsData.BackupShipNorth = Convert.ToSingle(speed * Math.Cos(gpsData.GPHDT.Heading.ToRadians().Value));
+                gpsData.IsBackShipSpeedGood = true;
+            }
+            else if (gpsData != null && gpsData.GPHDT != null && gpsData.GPRMC != null && gpsData.GPRMC.IsValid && gpsData.GPHDT.IsValid)
+            {
+                // Convert the speed and east and north component
+                // Speed from the GPS
+                double speed = gpsData.GPRMC.Speed.ToMetersPerSecond().Value;
+
+                // Calculate the East and North component of the GPS speed
+                gpsData.BackupShipEast = Convert.ToSingle(speed * Math.Sin(gpsData.GPHDT.Heading.ToRadians().Value));
+                gpsData.BackupShipNorth = Convert.ToSingle(speed * Math.Cos(gpsData.GPHDT.Heading.ToRadians().Value));
+                gpsData.IsBackShipSpeedGood = true;
+            }
+
+            return gpsData;
+        }
 
         /// <summary>
         /// Decode the NMEA data.

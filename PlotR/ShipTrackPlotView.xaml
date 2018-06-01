@@ -51,8 +51,10 @@
                            CanDragMap="True"
                            ItemsSource="{Binding Path=Markers}" />
 
-            <ContentPresenter Grid.Column="0" Content="{Binding ColorMapCanvas}" Width="40" Margin="5,5,20,5" HorizontalAlignment="Right"/>
-
+            <Border Grid.Column="0" Background="#6661B3FF" Margin="5,5,20,5" CornerRadius="3" HorizontalAlignment="Right" VerticalAlignment="Top" Height="340">
+                <ContentPresenter Grid.Column="0" Content="{Binding ColorMapCanvas}" Width="40" Margin="5,5,20,5" HorizontalAlignment="Right"/>
+            </Border>
+            
             <Expander x:Name="Exapnder" Grid.Column="2" Header="Options" ExpandDirection="Left">
                 <TabControl>
                     <TabItem Header="Plot Options">
@@ -62,7 +64,8 @@
                             <Separator />
 
                             <TextBlock Text="Plot Water Magnitude and Direction Line" Margin="5" />
-                            <Controls:ToggleSwitch IsChecked="{Binding IsPlotWaterLine}" HorizontalAlignment="Left" ToolTip="Turn ON, plot a Water Line of the magnitude and direction.  Turn OFF, plot a rectangle of the water magnitude." />
+                            <!--Controls:ToggleSwitch IsChecked="{Binding IsPlotWaterLine}" HorizontalAlignment="Left" ToolTip="Turn ON, plot a Water Line of the magnitude and direction.  Turn OFF, plot a rectangle of the water magnitude." /-->
+                            <ComboBox Margin="5" ItemsSource="{Binding PlotOptionList}" SelectedItem="{Binding SelectedPlotOption}" ToolTip="Select the plot type to draw on the map." />
                             <Separator />
 
                             <TextBlock Text="Magnitude Scale" Margin="5" />

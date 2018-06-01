@@ -134,6 +134,8 @@ namespace PlotR
             // Create a canvas
             System.Windows.Controls.Canvas canvas = new System.Windows.Controls.Canvas();
 
+            //canvas.Background = new System.Windows.Media.SolidColorBrush(Color.FromArgb(0x80, 0XFF, 0xFF, 0xFF));
+
             // All all the colors
             double step = ((maxVal - minVal) / STEPS);
             for (double x = minVal; x < maxVal; x += step)
@@ -190,7 +192,7 @@ namespace PlotR
             System.Windows.Controls.TextBlock textBottom = new System.Windows.Controls.TextBlock();
             textBottom.Text = maxVal.ToString("0.0");                                                           // Set the text
             System.Windows.Controls.Canvas.SetLeft(textBottom, width + 5.0);                                    // Move next to rectangle
-            System.Windows.Controls.Canvas.SetTop(textBottom, (height * STEPS) - (height/2.0));                 // Set to the bottom
+            System.Windows.Controls.Canvas.SetTop(textBottom, (height * STEPS) - (height/2.0) - 10);                 // Set to the bottom
             canvas.Children.Add(textBottom);
 
             return canvas;

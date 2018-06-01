@@ -33,31 +33,68 @@ namespace PlotR
         public class ShipTrackData
         {
             /// <summary>
-            /// Magnitude scale.  This value is mulitplied to the magnitude
-            /// value to increase or decrease the line length for visual representation.
+            /// Date and time.
             /// </summary>
-            public double MagScale { get; set; }
+            public string DateTime { get; set; }
 
             /// <summary>
-            /// Line series to hold the ship track information.
+            /// Ensemble number.
             /// </summary>
-            public LineSeries ShipSeries { get; set; }
+            public string EnsNum { get; set; }
 
             /// <summary>
-            /// Line series to hold the Water Magnitude.
+            /// Latitude and Longitude.
             /// </summary>
-            public LineSeries WaterSeries { get; set; }
+            public string LatLon { get; set; }
+
+            public DataHelper.VelocityMagDir VelMagDir { get; set; }
+
+            /// <summary>
+            /// Average Range.
+            /// </summary>
+            public double AvgRange { get; set; }
 
             /// <summary>
             /// Initialize.
             /// </summary>
             public ShipTrackData()
             {
-                MagScale = 1.0;
-                ShipSeries = new LineSeries();
-                WaterSeries = new LineSeries();
+                DateTime = "";
+                EnsNum = "";
+                LatLon = "";
+                VelMagDir = null;
+                AvgRange = 0.0;
             }
         }
+
+        #endregion
+
+        #region Variables
+
+        /// <summary>
+        /// Minimum Index.
+        /// </summary>
+        private int _minIndex;
+
+        /// <summary>
+        /// Maximum index.
+        /// </summary>
+        private int _maxIndex;
+
+        /// <summary>
+        /// Quiver plot.
+        /// </summary>
+        public const string PLOT_OPTION_QUIVER = "Quiver";
+
+        /// <summary>
+        /// Velocity rectangle plot.
+        /// </summary>
+        public const string PLOT_OPTION_VELOCITY_RECTANGLE = "Velocity Rectangle";
+
+        /// <summary>
+        /// Bottom Track Range Rectangle.
+        /// </summary>
+        public const string PLOT_OPTION_BT_RANGE = "Bottom Track Range Rectangle";
 
         #endregion
 
@@ -276,6 +313,31 @@ namespace PlotR
         }
 
         /// <summary>
+        /// List of Plot options.
+        /// </summary>
+        public ObservableCollection<string> PlotOptionList { get; set; }
+
+        /// <summary>
+        /// Selected plot option.
+        /// </summary>
+        private string _SelectedPlotOption;
+        /// <summary>
+        /// Selected plot option.
+        /// </summary>
+        public string SelectedPlotOption
+        {
+            get { return _SelectedPlotOption; }
+            set
+            {
+                _SelectedPlotOption = value;
+                NotifyOfPropertyChange(() => SelectedPlotOption);
+
+                // Set the plot option
+                SetPlotOption(value);
+            }
+        }
+
+        /// <summary>
         /// Use GPS speed as a backup value.
         /// </summary>
         private bool _IsUseGpsSpeedBackup;
@@ -316,7 +378,7 @@ namespace PlotR
         public ShipTrackPlotViewModel()
         {
             // Create the plot
-            Plot = CreatePlot();
+            //Plot = CreatePlot();
 
             ColorHM = new ColorHeatMap(0x80);      // 50% alpha
 
@@ -337,6 +399,16 @@ namespace PlotR
             _SelectedMapProvider = GMap.NET.MapProviders.GoogleMapProvider.Instance;
             NotifyOfPropertyChange(() => SelectedMapProvider);
 
+            PlotOptionList = new ObservableCollection<string>();
+            PlotOptionList.Add(PLOT_OPTION_QUIVER);
+            PlotOptionList.Add(PLOT_OPTION_VELOCITY_RECTANGLE);
+            PlotOptionList.Add(PLOT_OPTION_BT_RANGE);
+            _SelectedPlotOption = PLOT_OPTION_QUIVER;
+            NotifyOfPropertyChange(() => SelectedPlotOption);
+
+
+            _minIndex = 0;
+            _maxIndex = 0;
             Markers = new ObservableCollection<GMapMarker>();
             Position = new PointLatLng();
             Zoom = 1;
@@ -451,9 +523,14 @@ namespace PlotR
         /// <param name="maxIndex">Maximum Index.</param>
         public override void ReplotData(int minIndex, int maxIndex)
         {
-            Application.Current.Dispatcher.Invoke((Action)delegate
-            {
+            //Application.Current.Dispatcher.Invoke((Action)delegate
+            //{
+            Task.Run(() =>
+            { 
+                _minIndex = minIndex;
+                _maxIndex = maxIndex;
                 DrawPlot(minIndex, maxIndex);
+
             });
         }
 
@@ -463,17 +540,28 @@ namespace PlotR
         public override void ReplotData()
         {
             // Replot the data
-            ReplotData(0, 0);
+            ReplotData(_minIndex, _maxIndex);
         }
 
         #endregion
 
         #region Draw Plot
 
-        private void DrawPlot(int minIndex, int maxIndex)
+        /// <summary>
+        /// Get the data from the database.  Then draw the plot.
+        /// </summary>
+        /// <param name="minIndex">Minimum index in the database.</param>
+        /// <param name="maxIndex">Maximum index in the database.</param>
+        private async void DrawPlot(int minIndex, int maxIndex)
         {
             // Clear the current markers
-            Markers.Clear();
+            Application.Current.Dispatcher.Invoke((Action)delegate
+            {
+                Markers.Clear();
+            });
+
+            // Init the list of data
+            List<ShipTrackData> data = new List<ShipTrackData>();
 
             // Verify a file was given
             if (!string.IsNullOrEmpty(_ProjectFilePath))
@@ -493,7 +581,7 @@ namespace PlotR
                             sqlite_conn.Open();
 
                             // Get total number of ensembles in the project
-                            TotalNumEnsembles = GetNumEnsembles(sqlite_conn);
+                            await Task.Run(() => TotalNumEnsembles = GetNumEnsembles(sqlite_conn));
 
                             // If this is the first time loading
                             // show the entire plot
@@ -505,26 +593,29 @@ namespace PlotR
                             }
 
                             // Get the data from the project
-                            ShipTrackData data = null;
-                            data = GetData(sqlite_conn, _MagScale, minIndex, maxIndex);
-
-                            // If there is no data, do not plot
-                            if (data != null)
-                            {
-                                // Update status
-                                StatusMsg = "Drawing Plot";
-
-                                // Plot the data from the project
-                                PlotSeriesData(data);
-                            }
-                            else
-                            {
-                                StatusMsg = "No data to plot";
-                            }
+                            await Task.Run(() => data = GetData(sqlite_conn, _MagScale, minIndex, maxIndex));
 
                             // Close connection
                             sqlite_conn.Close();
                         }
+
+                        // If there is no data, do not plot
+                        if (data != null && data.Count > 0)
+                        {
+                            // Update status
+                            StatusMsg = "Drawing Plot";
+
+                            Application.Current.Dispatcher.Invoke((Action)delegate
+                            {
+                                // Plot the data
+                                PlotMapData(data);
+                            });
+                        }
+                        else
+                        {
+                            StatusMsg = "No GPS data to plot";
+                        }
+
                     }
                     catch (SQLiteException e)
                     {
@@ -552,7 +643,7 @@ namespace PlotR
         /// <param name="minIndex">Minimum Ensemble index.</param>
         /// <param name="maxIndex">Maximum Ensemble index.</param>
         /// <returns>The selected for each ensemble and bin.</returns>
-        private ShipTrackData GetData(SQLiteConnection cnn, double magScale, int minIndex = 0, int maxIndex = 0)
+        private List<ShipTrackData> GetData(SQLiteConnection cnn, double magScale, int minIndex = 0, int maxIndex = 0)
         {
             //StatusProgressMax = TotalNumEnsembles;
             StatusProgress = 0;
@@ -593,16 +684,15 @@ namespace PlotR
         /// <param name="minIndex">Minimum index.</param>
         /// <param name="maxIndex">Maximum index.</param>
         /// <returns></returns>
-        private ShipTrackData QueryDataFromDb(SQLiteConnection cnn, string query, double magScale, int minIndex = 0, int maxIndex = 0)
+        private List<ShipTrackData> QueryDataFromDb(SQLiteConnection cnn, string query, double magScale, int minIndex = 0, int maxIndex = 0)
         {
             // Init list
-            int ensIndex = 0;
             double backupBtEast = DataHelper.BAD_VELOCITY;
             double backupBtNorth = DataHelper.BAD_VELOCITY;
 
             // Init the new series data
-            ShipTrackData stData = new ShipTrackData();
-            stData.MagScale = magScale;
+            List<ShipTrackData> stDataList = new List<ShipTrackData>();
+            //stData.MagScale = magScale;
 
             // Ensure a connection was made
             if (cnn == null)
@@ -618,16 +708,18 @@ namespace PlotR
                 DbDataReader reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
-                    // Init the value
-                    double avgMag = 0.0;
-                    double avgDir = 0.0;
+                    ShipTrackData stData = new ShipTrackData();
+
+                    // Update the status
+                    StatusProgress++;
+                    StatusMsg = reader["EnsembleNum"].ToString();
 
                     // Get the Ensemble number and Date and time
-                    string dateTime = reader["DateTime"].ToString();
-                    string ensNum = reader["EnsembleNum"].ToString();
+                    stData.DateTime = reader["DateTime"].ToString();
+                    stData.EnsNum = reader["EnsembleNum"].ToString();
 
                     // Plot the lat/lon
-                    string lat_lon = reader["Position"].ToString();
+                    stData.LatLon = reader["Position"].ToString();
 
                     //// Get the range bin
                     //int rangeBin = DataHelper.GetRangeBin(reader);
@@ -648,128 +740,36 @@ namespace PlotR
 
                     if (IsUseGpsSpeedBackup)
                     {
-                        // Get the NMEA data
-                        string jsonNmea = reader["NmeaDS"].ToString();
-                        DataHelper.GpsData gpsData = null;
-                        if (!string.IsNullOrEmpty(jsonNmea))
+                        // Get the GPS data from the database
+                        DataHelper.GpsData gpsData = DataHelper.GetGpsData(reader);
+
+                        // Check for a backup value for BT East and North speed from the GPS if a Bottom Track value is never found
+                        if (Math.Round(backupBtEast, 4) == BAD_VELOCITY && gpsData.IsBackShipSpeedGood)
                         {
-                            // Convert to a JSON object
-                            JObject ensNmea = JObject.Parse(jsonNmea);
-                            string[] nmeaStrings = ensNmea["NmeaStrings"].ToObject<string[]>();
-
-                            if (nmeaStrings != null && nmeaStrings.Length > 0)
-                            {
-                                gpsData = DataHelper.DecodeNmea(nmeaStrings);
-                            }
-                        }
-
-                        // Check for a backup value for BT East and North speed from the GPS
-                        if (Math.Round(backupBtEast, 4) == BAD_VELOCITY)
-                        {
-                            // Check if we have a valid GPS speed
-                            if (gpsData != null && gpsData.GPVTG != null && gpsData.GPHDT != null && gpsData.GPVTG.IsValid && gpsData.GPHDT.IsValid)
-                            {
-                                // Convert the speed and east and north component
-                                // Speed from the GPS
-                                double speed = gpsData.GPVTG.Speed.ToMetersPerSecond().Value;
-
-                                // Calculate the East and North component of the GPS speed
-                                backupBtEast = Convert.ToSingle(speed * Math.Sin(gpsData.GPHDT.Heading.ToRadians().Value));
-                                backupBtNorth = Convert.ToSingle(speed * Math.Cos(gpsData.GPHDT.Heading.ToRadians().Value));
-                            }
-                            else if(gpsData != null && gpsData.GPHDT != null && gpsData.GPRMC != null && gpsData.GPRMC.IsValid && gpsData.GPHDT.IsValid)
-                            {
-                                // Convert the speed and east and north component
-                                // Speed from the GPS
-                                double speed = gpsData.GPRMC.Speed.ToMetersPerSecond().Value;
-
-                                // Calculate the East and North component of the GPS speed
-                                backupBtEast = Convert.ToSingle(speed * Math.Sin(gpsData.GPHDT.Heading.ToRadians().Value));
-                                backupBtNorth = Convert.ToSingle(speed * Math.Cos(gpsData.GPHDT.Heading.ToRadians().Value));
-                            }
+                            backupBtEast = gpsData.BackupShipEast;
+                            backupBtNorth = gpsData.BackupShipNorth;
                         }
                     }
-
 
                     // Get the velocity
-                    DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, backupBtEast, backupBtNorth, true, true);
-                    avgMag = velMagDir.AvgMagnitude;
-                    avgDir = velMagDir.AvgDirectionYNorth;
+                    stData.VelMagDir = DataHelper.CreateVelocityVectors(reader, backupBtEast, backupBtNorth, true, true);
+
+                    // Get the average range
+                    stData.AvgRange = DataHelper.GetAverageRange(reader);
 
                     // Store the backup value
-                    if(velMagDir.IsBtVelGood)
+                    if (stData.VelMagDir.IsBtVelGood)
                     {
-                        backupBtEast = velMagDir.BtEastVel;
-                        backupBtNorth = velMagDir.BtNorthVel;
+                        backupBtEast = stData.VelMagDir.BtEastVel;
+                        backupBtNorth = stData.VelMagDir.BtNorthVel;
                     }
 
-                    if (!string.IsNullOrEmpty(lat_lon))
-                    {
-                        // Separate the position by comma
-                        string[] lat_lon_items = lat_lon.Split(',');
-
-                        if (lat_lon_items.Length >= 2)
-                        {
-                            // Parse the data
-                            double lat = 0.0;
-                            double lon = 0.0;
-                            double.TryParse(lat_lon_items[0], out lat);
-                            double.TryParse(lat_lon_items[1], out lon);
-
-                            // Add it to the series
-                            stData.ShipSeries.Points.Add(new DataPoint(lat, lon));
-
-                            // Convert the value to color from the color map
-                            System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(ColorHM.GetColorForValue(avgMag, _MinValue, _MaxValue));
-
-                            // Mark
-                            //GMarkerGoogle marker = new GMarkerGoogle(new GMap.NET.PointLatLng(lat, lon), GMarkerGoogleType.blue);
-                            //GMapMarker marker = new GMarkerGoogle(new GMap.NET.PointLatLng(lat, lon), GMarkerGoogleType.blue);
-                            GMapMarker marker = new GMapMarker(new GMap.NET.PointLatLng(lat, lon));
-                            System.Windows.Media.BrushConverter converter = new System.Windows.Media.BrushConverter();
-                            //System.Windows.Media.Brush brush = (System.Windows.Media.Brush)converter.ConvertFromString("#80FF0000");  // 50 Alpha Red
-
-                            if (_IsPlotWaterLine)
-                            {
-                                // Degrees to radian
-                                double angle = Math.PI * avgDir / 180.0;
-
-                                marker.Shape = new Line
-                                {
-                                    X1 = 0,
-                                    Y1 = 0,
-                                    X2 = (Math.Abs(avgMag) * magScale) * Math.Cos(angle),
-                                    Y2 = -((Math.Abs(avgMag) * magScale) * Math.Sin(angle)),        // Flip the sign
-                                    StrokeThickness = 3,
-                                    Stroke = brush,
-                                    ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3}", ensNum, dateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"))
-                                };
-                            }
-                            else
-                            {
-                                marker.Shape = new Rectangle
-                                {
-                                    Width = 20 * magScale,
-                                    Height = 20 * magScale,
-                                    Fill = brush,
-                                    Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
-                                    ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3}", ensNum, dateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"))
-                                };
-                            }
-
-                            Markers.Add(marker);
-                        }
-                    }
-
-                    ensIndex++;
+                    // Add the data to the list
+                    stDataList.Add(stData);
                 }
-
-                // Set the center position
-                Position = GetCenterPoint(Markers);
-                Zoom = 17;
             }
 
-            return stData;
+            return stDataList;
         }
 
         /// <summary>
@@ -790,8 +790,11 @@ namespace PlotR
                 lng += pts.Position.Lng;
 
             }
-            lat = lat / sum;
-            lng = lng / sum;
+            if (sum > 0)
+            {
+                lat = lat / sum;
+                lng = lng / sum;
+            }
 
             centroide.Lat = lat;
             centroide.Lng = lng;
@@ -808,20 +811,93 @@ namespace PlotR
         /// new series lines.
         /// </summary>
         /// <param name="stData">Ship Track data.</param>
-        private void PlotSeriesData(ShipTrackData stData)
+        private void PlotMapData(List<ShipTrackData> stDataList)
         {
-            lock (Plot.SyncRoot)
+            // Init the value
+            double avgMag = 0.0;
+            double avgDir = 0.0;
+
+            foreach (ShipTrackData stData in stDataList)
             {
-                Plot.Series.Clear();
+                avgMag = stData.VelMagDir.AvgMagnitude;
+                avgDir = stData.VelMagDir.AvgDirectionYNorth;
 
-                // Add series to the plot
-                Plot.Series.Add(stData.ShipSeries);
-                Plot.Series.Add(stData.WaterSeries);
+                if (!string.IsNullOrEmpty(stData.LatLon))
+                {
+                    // Separate the position by comma
+                    string[] lat_lon_items = stData.LatLon.Split(',');
+
+                    if (lat_lon_items.Length >= 2)
+                    {
+                        // Parse the data
+                        double lat = 0.0;
+                        double lon = 0.0;
+                        double.TryParse(lat_lon_items[0], out lat);
+                        double.TryParse(lat_lon_items[1], out lon);
+
+                        // Add it to the series
+                        //stData.ShipSeries.Points.Add(new DataPoint(lat, lon));
+
+                        // Convert the value to color from the color map
+                        System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(ColorHM.GetColorForValue(avgMag, _MinValue, _MaxValue));
+
+                        // Mark
+                        //GMarkerGoogle marker = new GMarkerGoogle(new GMap.NET.PointLatLng(lat, lon), GMarkerGoogleType.blue);
+                        //GMapMarker marker = new GMarkerGoogle(new GMap.NET.PointLatLng(lat, lon), GMarkerGoogleType.blue);
+                        GMapMarker marker = new GMapMarker(new GMap.NET.PointLatLng(lat, lon));
+                        System.Windows.Media.BrushConverter converter = new System.Windows.Media.BrushConverter();
+                        //System.Windows.Media.Brush brush = (System.Windows.Media.Brush)converter.ConvertFromString("#80FF0000");  // 50 Alpha Red
+
+                        if (_SelectedPlotOption == PLOT_OPTION_QUIVER)
+                        {
+                            // Degrees to radian
+                            double angle = Math.PI * avgDir / 180.0;
+
+                            marker.Shape = new Line
+                            {
+                                X1 = 0,
+                                Y1 = 0,
+                                X2 = (Math.Abs(avgMag) * MagScale) * Math.Cos(angle),
+                                Y2 = -((Math.Abs(avgMag) * MagScale) * Math.Sin(angle)),        // Flip the sign
+                                StrokeThickness = 3,
+                                Stroke = brush,
+                                ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0"))
+                            };
+                        }
+                        else if(_SelectedPlotOption == PLOT_OPTION_VELOCITY_RECTANGLE)
+                        {
+                            marker.Shape = new Rectangle
+                            {
+                                Width = 20 * MagScale,
+                                Height = 20 * MagScale,
+                                Fill = brush,
+                                Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
+                                ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0"))
+                            };
+                        }
+                        else if(_SelectedPlotOption == PLOT_OPTION_BT_RANGE)
+                        {
+                            // Convert the average Range to color from the color map
+                            brush = new System.Windows.Media.SolidColorBrush(ColorHM.GetColorForValue(stData.AvgRange, _MinValue, _MaxValue));
+
+                            marker.Shape = new Rectangle
+                            {
+                                Width = 20 * MagScale,
+                                Height = 20 * MagScale,
+                                Fill = brush,
+                                Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
+                                ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0"))
+                            };
+                        }
+
+                        Markers.Add(marker);
+                    }
+                }
             }
-            Plot.InvalidatePlot(true);
 
-            //foreach(var marker in Markers)
-            //    MapView.Markers.Add(marker);
+            // Set the center position
+            Position = GetCenterPoint(Markers);
+            Zoom = 17;
         }
 
 
@@ -833,6 +909,50 @@ namespace PlotR
         public void TakeScreenShot()
         {
             ((ShipTrackPlotView)this.GetView()).TakeScreenShot();
+        }
+
+        #endregion
+
+        #region Plot Option
+
+        /// <summary>
+        /// Set the plot options.
+        /// </summary>
+        /// <param name="option"></param>
+        public void SetPlotOption(string option)
+        {
+            // Reset the mag scale
+            switch (option)
+            {
+                case PLOT_OPTION_QUIVER:
+                    // Use default magScale
+                    _MagScale = 75;
+                    NotifyOfPropertyChange(() => MagScale);
+                    _MinValue = 0;
+                    _MaxValue = 2;
+                    NotifyOfPropertyChange(() => MinValue);
+                    NotifyOfPropertyChange(() => MaxValue);
+                    break;
+                case PLOT_OPTION_VELOCITY_RECTANGLE:
+                    _MagScale = 1;
+                    NotifyOfPropertyChange(() => MagScale);
+                    _MinValue = 0;
+                    _MaxValue = 2;
+                    NotifyOfPropertyChange(() => MinValue);
+                    NotifyOfPropertyChange(() => MaxValue);
+                    break;
+                case PLOT_OPTION_BT_RANGE:
+                    _MagScale = 1;
+                    NotifyOfPropertyChange(() => MagScale);
+                    _MinValue = 0;
+                    _MaxValue = 100;
+                    NotifyOfPropertyChange(() => MinValue);
+                    NotifyOfPropertyChange(() => MaxValue);
+                    break;
+                    
+            }
+
+            ReplotData();
         }
 
         #endregion
