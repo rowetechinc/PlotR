@@ -7,6 +7,7 @@
              xmlns:gmaps="clr-namespace:GMap.NET.WindowsPresentation;assembly=GMap.NET.WindowsPresentation"
              xmlns:Controls="http://metro.mahapps.com/winfx/xaml/controls"
              xmlns:local="clr-namespace:PlotR"
+             x:Name="ShipTrackPlot"
              mc:Ignorable="d" 
              d:DesignHeight="300" d:DesignWidth="300">
     <DockPanel>
@@ -30,7 +31,7 @@
             </StatusBarItem>
         </StatusBar>
 
-        <Grid>
+        <Grid Grid.IsSharedSizeScope="True">
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
@@ -49,7 +50,150 @@
                            Zoom="{Binding Zoom, Mode=TwoWay}" 
                            MouseWheelZoomType="MousePositionAndCenter"  
                            CanDragMap="True"
-                           ItemsSource="{Binding Path=Markers}" />
+                           ItemsSource="{Binding Path=Markers}"
+                           >
+
+                <gmaps:GMapControl.ContextMenu>
+                    <ContextMenu Tag="{Binding Path=PlacementTarget, RelativeSource={RelativeSource Self}}">
+                        <MenuItem Header="Plot Options">
+                            <MenuItem>
+                                <MenuItem.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="0.35*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="1" Text="Zoom Level" Margin="20,5,5,5" FontWeight="Bold" />
+                                            <Controls:NumericUpDown Grid.Column="0"  Value="{Binding Path=DataContext.Zoom, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}}" Minimum="0" HorizontalAlignment="Left" ToolTip="Set the zoom level." />
+                                        </Grid>
+                                    </DataTemplate>
+                                </MenuItem.HeaderTemplate>
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem>
+                                <MenuItem.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Text="Plot Type" Margin="5" FontWeight="Bold" />
+                                            <ComboBox Grid.Row="1" Margin="5" ItemsSource="{Binding DataContext.PlotOptionList, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}}" SelectedItem="{Binding DataContext.SelectedPlotOption, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}}" ToolTip="Select the plot type to draw on the map." />
+                                        </Grid>
+                                    </DataTemplate>
+                                </MenuItem.HeaderTemplate>
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem>
+                                <MenuItem.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="0.35*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="1" Text="Magnitude Scale" Margin="20,5,5,5" FontWeight="Bold" />
+                                            <Controls:NumericUpDown Grid.Column="0" Value="{Binding DataContext.MagScale, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}}" Minimum="1" HorizontalAlignment="Left" ToolTip="Magnitude scale.  This will increase or decrease the line to see the results better." />
+                                        </Grid>
+                                    </DataTemplate>
+                                </MenuItem.HeaderTemplate>
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem>
+                                <MenuItem.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="0.35*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="1" Text="Minimum Value (m/s)" Margin="20,5,5,5" FontWeight="Bold" />
+                                            <Controls:NumericUpDown Grid.Column="0" Value="{Binding DataContext.MinValue, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}}" Interval="0.1" HasDecimals="True" StringFormat="N2" HorizontalAlignment="Left" ToolTip="Minimum (m/s) value for the color map." />
+                                        </Grid>
+                                    </DataTemplate>
+                                </MenuItem.HeaderTemplate>
+                            </MenuItem>
+                            <MenuItem>
+                                <MenuItem.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="0.35*" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Grid.Column="1" Text="Maximum Value (m/s)" Margin="20,5,5,5" FontWeight="Bold" />
+                                            <Controls:NumericUpDown Grid.Column="0" Value="{Binding DataContext.MaxValue, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}}" Interval="0.1" HasDecimals="True" StringFormat="N2" HorizontalAlignment="Left" ToolTip="Maximum (m/s) value for the color map." />
+                                        </Grid>
+                                    </DataTemplate>
+                                </MenuItem.HeaderTemplate>
+                            </MenuItem>
+                            <Separator />
+                            <MenuItem>
+                                <MenuItem.HeaderTemplate>
+                                    <DataTemplate>
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="*" />
+                                            </Grid.RowDefinitions>
+                                            <TextBlock Grid.Row="0" Text="Map Provider" Margin="5" FontWeight="Bold" />
+                                            <ComboBox Grid.Row="1" ItemsSource="{Binding DataContext.MapProviderList, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}}" SelectedValue="{Binding DataContext.SelectedMapProvider, RelativeSource={RelativeSource Mode=FindAncestor, AncestorType=ContextMenu}}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </MenuItem.HeaderTemplate>
+                            </MenuItem>
+                            <Separator />
+                        </MenuItem>
+
+                                <MenuItem Header="Selected Files">
+                            <MenuItem>
+                                <MenuItem.HeaderTemplate>
+                                    <DataTemplate>
+                                        <ListView ItemsSource="{Binding ProjectFileList}" SelectedItem="{Binding SelectedProjectFile}">
+                                            <ListView.View>
+                                                <GridView>
+                                                    <GridViewColumn Header="Selected">
+                                                        <GridViewColumn.CellTemplate>
+                                                            <DataTemplate>
+                                                                <CheckBox IsChecked="{Binding IsChecked}" Command="{Binding Command}" />
+                                                            </DataTemplate>
+                                                        </GridViewColumn.CellTemplate>
+                                                    </GridViewColumn>
+                                                    <GridViewColumn Header="File Name" DisplayMemberBinding="{Binding FileName}"  />
+                                                    <GridViewColumn Header="Number Ensembles" DisplayMemberBinding="{Binding NumEnsembles}"  />
+                                                    <GridViewColumn Header="First Date" DisplayMemberBinding="{Binding MinDateTime}"  />
+                                                    <GridViewColumn Header="Last Date" DisplayMemberBinding="{Binding MaxDateTime}" />
+                                                </GridView>
+                                            </ListView.View>
+
+                                        </ListView>
+                                    </DataTemplate>
+                                </MenuItem.HeaderTemplate>
+                            </MenuItem>
+                        </MenuItem>
+                        <MenuItem Header="Subsystem Config">
+                            <ListView ItemsSource="{Binding SubsystemConfigList}">
+                                <ListView.View>
+                                    <GridView>
+                                        <GridViewColumn Header="Selected">
+                                            <GridViewColumn.CellTemplate>
+                                                <DataTemplate>
+                                                    <CheckBox IsChecked="{Binding IsChecked}" Command="{Binding Command}" />
+                                                </DataTemplate>
+                                            </GridViewColumn.CellTemplate>
+                                        </GridViewColumn>
+                                        <GridViewColumn Header="Subsystem" DisplayMemberBinding="{Binding Subsystem}" />
+                                        <GridViewColumn Header="Index" DisplayMemberBinding="{Binding CepoIndex}" />
+                                        <GridViewColumn Header="Desc" DisplayMemberBinding="{Binding Desc}" />
+                                    </GridView>
+                                </ListView.View>
+                            </ListView>
+                        </MenuItem>
+                    </ContextMenu>
+                </gmaps:GMapControl.ContextMenu>
+            </gmaps:GMapControl>
 
             <Border Grid.Column="0" Background="#6661B3FF" Margin="5,5,20,5" CornerRadius="3" HorizontalAlignment="Right" VerticalAlignment="Top" Height="340">
                 <ContentPresenter Grid.Column="0" Content="{Binding ColorMapCanvas}" Width="40" Margin="5,5,20,5" HorizontalAlignment="Right"/>
