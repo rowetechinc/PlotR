@@ -78,6 +78,10 @@ namespace PlotR
                 if ((maxVal - minVal) != 0)
                 {
                     valPerc = (val - minVal) / (maxVal - minVal);               // value %
+                    if(valPerc < 0)
+                    {
+                        valPerc = 0.0;
+                    }
                 }
                 double colorPerc = 1d / (ColorsOfMap.Count - 1);                // % of each block of color. the last is the "100% Color"
                 double blockOfColor = valPerc / colorPerc;                      // the integer part repersents how many block to skip

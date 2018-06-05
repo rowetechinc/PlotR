@@ -30,6 +30,61 @@ namespace PlotR
 
         #region Class
 
+        /// <summary>
+        /// All the different map layers.
+        /// </summary>
+        public enum MapLayers
+        {
+            /// <summary>
+            /// Ship Track line.
+            /// </summary>
+            Ship_Track_Line = 1,
+
+            /// <summary>
+            /// Quiver lines.
+            /// </summary>
+            Quiver = 2,
+
+            /// <summary>
+            /// Velocity Rectangles.
+            /// </summary>
+            Velocity_Rectangle = 3,
+
+            /// <summary>
+            /// Bottom Track Range Rectangles.
+            /// </summary>
+            Range_Rectangle = 4,
+
+            /// <summary>
+            /// Last point.
+            /// </summary>
+            Last_Point = 5,
+        }
+
+        /// <summary>
+        /// Latitude and longitude position.
+        /// </summary>
+        public struct LatLon
+        {
+            /// <summary>
+            /// Flag if the data is good.
+            /// </summary>
+            public bool IsGood { get; set; }
+
+            /// <summary>
+            /// Latitude in degrees.
+            /// </summary>
+            public double Latitude { get; set; }
+
+            /// <summary>
+            /// Longitude in degrees.
+            /// </summary>
+            public double Longitude { get; set; }
+        }
+
+        /// <summary>
+        /// Store the ship track data.
+        /// </summary>
         public class ShipTrackData
         {
             /// <summary>
@@ -47,6 +102,9 @@ namespace PlotR
             /// </summary>
             public string LatLon { get; set; }
 
+            /// <summary>
+            /// Water Velocity magnitude and direction.
+            /// </summary>
             public DataHelper.VelocityMagDir VelMagDir { get; set; }
 
             /// <summary>
@@ -64,6 +122,41 @@ namespace PlotR
                 LatLon = "";
                 VelMagDir = null;
                 AvgRange = 0.0;
+            }
+
+            /// <summary>
+            /// Decode the latitude and longitude values.
+            /// </summary>
+            /// <returns></returns>
+            public LatLon GetLatLon()
+            {
+                // Initialize
+                LatLon latLon = new LatLon();
+                latLon.Latitude = 0.0;
+                latLon.Longitude = 0.0;
+
+                if (!string.IsNullOrEmpty(LatLon))
+                {
+                    // Separate the position by comma
+                    string[] lat_lon_items = LatLon.Split(',');
+
+                    // Verify we found the lat and lon
+                    if (lat_lon_items.Length >= 2)
+                    {
+                        // Parse the data
+                        double lat = 0.0;
+                        double lon = 0.0;
+                        double.TryParse(lat_lon_items[0], out lat);
+                        double.TryParse(lat_lon_items[1], out lon);
+
+                        // Set the values
+                        latLon.IsGood = true;
+                        latLon.Latitude = lat;
+                        latLon.Longitude = lon;
+                     }
+                }
+
+                return latLon;
             }
         }
 
@@ -138,6 +231,11 @@ namespace PlotR
                 _MinValue = value;
                 NotifyOfPropertyChange(() => MinValue);
 
+                if(_MinValue > _MaxValue)
+                {
+                    MaxValue += 1;
+                }
+
                 // Replot the data
                 ReplotData();
 
@@ -161,6 +259,11 @@ namespace PlotR
             {
                 _MaxValue = value;
                 NotifyOfPropertyChange(() => MaxValue);
+
+                if(_MaxValue < _MinValue)
+                {
+                    MinValue -= 1;
+                }
 
                 // Replot the data
                 ReplotData();
@@ -817,83 +920,108 @@ namespace PlotR
             double avgMag = 0.0;
             double avgDir = 0.0;
 
+            // Keep Track of previous point to draw
+            // the ship track line
+            //LatLon prevLatLon = new LatLon { Latitude = 0.0, Longitude = 0.0, IsGood = false };
+            IList<PointLatLng> points = new List<PointLatLng>();
+
             foreach (ShipTrackData stData in stDataList)
             {
                 avgMag = stData.VelMagDir.AvgMagnitude;
                 avgDir = stData.VelMagDir.AvgDirectionYNorth;
+                LatLon currLatLon = stData.GetLatLon();
 
-                if (!string.IsNullOrEmpty(stData.LatLon))
+                if (currLatLon.IsGood)
                 {
-                    // Separate the position by comma
-                    string[] lat_lon_items = stData.LatLon.Split(',');
+                    // Add the point to the route
+                    points.Add(new PointLatLng(currLatLon.Latitude, currLatLon.Longitude));
 
-                    if (lat_lon_items.Length >= 2)
+                    // Convert the value to color from the color map
+                    System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(ColorHM.GetColorForValue(avgMag, _MinValue, _MaxValue));
+
+                    // Mark
+                    GMapMarker marker = new GMapMarker(new GMap.NET.PointLatLng(currLatLon.Latitude, currLatLon.Longitude));
+                    //System.Windows.Media.BrushConverter converter = new System.Windows.Media.BrushConverter();
+
+                    if (_SelectedPlotOption == PLOT_OPTION_QUIVER)
                     {
-                        // Parse the data
-                        double lat = 0.0;
-                        double lon = 0.0;
-                        double.TryParse(lat_lon_items[0], out lat);
-                        double.TryParse(lat_lon_items[1], out lon);
+                        // Degrees to radian
+                        double angle = Math.PI * avgDir / 180.0;
 
-                        // Add it to the series
-                        //stData.ShipSeries.Points.Add(new DataPoint(lat, lon));
-
-                        // Convert the value to color from the color map
-                        System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(ColorHM.GetColorForValue(avgMag, _MinValue, _MaxValue));
-
-                        // Mark
-                        //GMarkerGoogle marker = new GMarkerGoogle(new GMap.NET.PointLatLng(lat, lon), GMarkerGoogleType.blue);
-                        //GMapMarker marker = new GMarkerGoogle(new GMap.NET.PointLatLng(lat, lon), GMarkerGoogleType.blue);
-                        GMapMarker marker = new GMapMarker(new GMap.NET.PointLatLng(lat, lon));
-                        System.Windows.Media.BrushConverter converter = new System.Windows.Media.BrushConverter();
-                        //System.Windows.Media.Brush brush = (System.Windows.Media.Brush)converter.ConvertFromString("#80FF0000");  // 50 Alpha Red
-
-                        if (_SelectedPlotOption == PLOT_OPTION_QUIVER)
+                        marker.Shape = new Line
                         {
-                            // Degrees to radian
-                            double angle = Math.PI * avgDir / 180.0;
-
-                            marker.Shape = new Line
-                            {
-                                X1 = 0,
-                                Y1 = 0,
-                                X2 = (Math.Abs(avgMag) * MagScale) * Math.Cos(angle),
-                                Y2 = -((Math.Abs(avgMag) * MagScale) * Math.Sin(angle)),        // Flip the sign
-                                StrokeThickness = 3,
-                                Stroke = brush,
-                                ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0"))
-                            };
-                        }
-                        else if(_SelectedPlotOption == PLOT_OPTION_VELOCITY_RECTANGLE)
-                        {
-                            marker.Shape = new Rectangle
-                            {
-                                Width = 20 * MagScale,
-                                Height = 20 * MagScale,
-                                Fill = brush,
-                                Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
-                                ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0"))
-                            };
-                        }
-                        else if(_SelectedPlotOption == PLOT_OPTION_BT_RANGE)
-                        {
-                            // Convert the average Range to color from the color map
-                            brush = new System.Windows.Media.SolidColorBrush(ColorHM.GetColorForValue(stData.AvgRange, _MinValue, _MaxValue));
-
-                            marker.Shape = new Rectangle
-                            {
-                                Width = 20 * MagScale,
-                                Height = 20 * MagScale,
-                                Fill = brush,
-                                Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
-                                ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0"))
-                            };
-                        }
-
-                        Markers.Add(marker);
+                            X1 = 0,
+                            Y1 = 0,
+                            X2 = (Math.Abs(avgMag) * MagScale) * Math.Cos(angle),
+                            Y2 = -((Math.Abs(avgMag) * MagScale) * Math.Sin(angle)),        // Flip the sign
+                            StrokeThickness = 3,
+                            Stroke = brush,
+                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0")),
+                            Name = string.Format("Line_{0}", stData.EnsNum)
+                        };
+                        marker.ZIndex = (int)MapLayers.Quiver;
                     }
+                    else if(_SelectedPlotOption == PLOT_OPTION_VELOCITY_RECTANGLE)
+                    {
+                        marker.Shape = new Rectangle
+                        {
+                            Width = 20 * MagScale,
+                            Height = 20 * MagScale,
+                            Fill = brush,
+                            Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
+                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0")),
+                            Name = string.Format("Rect_Vel_{0}", stData.EnsNum)
+                        };
+                        marker.ZIndex = (int)MapLayers.Velocity_Rectangle;
+                    }
+                    else if(_SelectedPlotOption == PLOT_OPTION_BT_RANGE)
+                    {
+                        // Convert the average Range to color from the color map
+                        brush = new System.Windows.Media.SolidColorBrush(ColorHM.GetColorForValue(stData.AvgRange, _MinValue, _MaxValue));
+
+                        marker.Shape = new Rectangle
+                        {
+                            Width = 20 * MagScale,
+                            Height = 20 * MagScale,
+                            Fill = brush,
+                            Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
+                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0")),
+                            Name = string.Format("Rect_Range_{0}", stData.EnsNum)
+                        };
+                        marker.ZIndex = (int)MapLayers.Range_Rectangle;
+                    }
+
+                    // Add the marker to the list
+                    Markers.Add(marker);
                 }
             }
+
+            //// Add a marker for the last point to know which direction it traveled
+            //ShipTrackData lastStData = stDataList.Last();
+            //LatLon lastLatLon = lastStData.GetLatLon();
+            //if (lastLatLon.IsGood)
+            //{
+            //    GMapMarker lastMarker = new GMapMarker(new GMap.NET.PointLatLng(lastLatLon.Latitude, lastLatLon.Longitude));
+            //    lastMarker.Shape = new Ellipse
+            //    {
+            //        Width = 2 * MagScale,
+            //        Height = 2 * MagScale,
+            //        Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Yellow),
+            //        Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red),
+            //        ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", lastStData.EnsNum, lastStData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), lastStData.AvgRange.ToString("0.0"))
+            //    };
+            //    lastMarker.ZIndex = (int)MapLayers.Last_Point;
+
+            //    Markers.Add(lastMarker);
+            //}
+
+            // Plot the path that we taken
+            GMapRoute route = new GMapRoute(points);
+            System.Windows.Media.SolidColorBrush routeBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red);
+            routeBrush.Opacity = 0.4;
+            route.Shape = new System.Windows.Shapes.Path() { StrokeThickness = 3, Stroke = routeBrush, Fill = routeBrush };
+            route.ZIndex = (int)MapLayers.Ship_Track_Line;
+            Markers.Add(route);
 
             // Set the center position
             Position = GetCenterPoint(Markers);
@@ -952,6 +1080,11 @@ namespace PlotR
                     
             }
 
+            // Update the color map
+            //ColorMapCanvas = ColorHM.GetColorMapLegend(_MinValue, _MaxValue);
+            NotifyOfPropertyChange(() => ColorMapCanvas);
+
+            // Replot the data
             ReplotData();
         }
 
