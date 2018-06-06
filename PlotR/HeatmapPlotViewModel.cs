@@ -428,8 +428,8 @@ namespace PlotR
             // Initialize
             CurrentMinValue = 0.0;
             CurrentMaxValue = 2.0;
-            _backupBtEast = DataHelper.BAD_VELOCITY;
-            _backupBtNorth = DataHelper.BAD_VELOCITY;
+            _backupBtEast = DbDataHelper.BAD_VELOCITY;
+            _backupBtNorth = DbDataHelper.BAD_VELOCITY;
 
             // Bottom Track Line
             _IsBottomTrackLine = true;
@@ -485,8 +485,8 @@ namespace PlotR
         {
             //StatusProgressMax = TotalNumEnsembles;
             StatusProgress = 0;
-            _backupBtEast = DataHelper.BAD_VELOCITY;
-            _backupBtNorth = DataHelper.BAD_VELOCITY;
+            _backupBtEast = DbDataHelper.BAD_VELOCITY;
+            _backupBtNorth = DbDataHelper.BAD_VELOCITY;
 
             // Get the data to plot
             return QueryDataFromDb(cnn, selectedPlotType, minIndex, maxIndex);
@@ -667,7 +667,7 @@ namespace PlotR
             try
             {
                 // Get data
-                DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, _IsRemoveShipSpeed, _IsMarkBadBelowBottom);
+                DbDataHelper.VelocityMagDir velMagDir = DbDataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, _IsRemoveShipSpeed, _IsMarkBadBelowBottom);
 
                 // Store the backup value
                 if (velMagDir.IsBtVelGood)
@@ -695,7 +695,7 @@ namespace PlotR
             try
             {
                 // Get data
-                DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, _IsRemoveShipSpeed, _IsMarkBadBelowBottom);
+                DbDataHelper.VelocityMagDir velMagDir = DbDataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, _IsRemoveShipSpeed, _IsMarkBadBelowBottom);
 
                 // Store the backup value
                 if (velMagDir.IsBtVelGood)
@@ -727,15 +727,15 @@ namespace PlotR
                 if(IsMarkBadBelowBottom)
                 {
                     //rangeBin = GetRangeBin(reader);
-                    rangeBin = DataHelper.GetRangeBin(reader);
-                    if (rangeBin == DataHelper.BAD_BOTTOM_BIN && _prevGoodBottomBin != DataHelper.BAD_BOTTOM_BIN)
+                    rangeBin = DbDataHelper.GetRangeBin(reader);
+                    if (rangeBin == DbDataHelper.BAD_BOTTOM_BIN && _prevGoodBottomBin != DbDataHelper.BAD_BOTTOM_BIN)
                     {
                         // Use the backup value if bad
                         rangeBin = _prevGoodBottomBin;
                     }
 
                     // Store as backup
-                    if (rangeBin != DataHelper.BAD_BOTTOM_BIN)
+                    if (rangeBin != DbDataHelper.BAD_BOTTOM_BIN)
                     {
                         _prevGoodBottomBin = rangeBin;
                     }
@@ -1190,15 +1190,15 @@ namespace PlotR
 
                 // Update the bottom track line series
                 //int rangeBin = GetRangeBin(reader);
-                int rangeBin = DataHelper.GetRangeBin(reader);
-                if (rangeBin == DataHelper.BAD_BOTTOM_BIN && _prevGoodBottomBin != DataHelper.BAD_BOTTOM_BIN)
+                int rangeBin = DbDataHelper.GetRangeBin(reader);
+                if (rangeBin == DbDataHelper.BAD_BOTTOM_BIN && _prevGoodBottomBin != DbDataHelper.BAD_BOTTOM_BIN)
                 {
                     // Use the backup value if bad
                     rangeBin = _prevGoodBottomBin;
                 }
 
                 // Store as backup
-                if (rangeBin != DataHelper.BAD_BOTTOM_BIN)
+                if (rangeBin != DbDataHelper.BAD_BOTTOM_BIN)
                 {
                     _prevGoodBottomBin = rangeBin;
                 }

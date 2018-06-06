@@ -326,8 +326,8 @@ namespace PlotR
 
             SelectedBeam = 0;
             SelectedBin = 0;
-            _backupBtNorth = DataHelper.BAD_VELOCITY;
-            _backupBtEast = DataHelper.BAD_VELOCITY;
+            _backupBtNorth = DbDataHelper.BAD_VELOCITY;
+            _backupBtEast = DbDataHelper.BAD_VELOCITY;
 
             _IsFlipPlot = false;
             NotifyOfPropertyChange(() => IsFlipPlot);
@@ -932,8 +932,8 @@ namespace PlotR
         {
             // Init list
             int ensIndex = 0;
-            _backupBtEast = DataHelper.BAD_VELOCITY;
-            _backupBtNorth = DataHelper.BAD_VELOCITY;
+            _backupBtEast = DbDataHelper.BAD_VELOCITY;
+            _backupBtNorth = DbDataHelper.BAD_VELOCITY;
 
             // Init the new series data
             SeriesData seriesData = new SeriesData();
@@ -1053,7 +1053,7 @@ namespace PlotR
             try
             {
                 // Get the data
-                DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, true, false);
+                DbDataHelper.VelocityMagDir velMagDir = DbDataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, true, false);
 
                 // Store the backup value
                 if (velMagDir.IsBtVelGood)
@@ -1064,7 +1064,7 @@ namespace PlotR
 
                 if (bin < velMagDir.Magnitude.Length)
                 {
-                    if (Math.Round(velMagDir.Magnitude[bin], 3) != DataHelper.BAD_VELOCITY)
+                    if (Math.Round(velMagDir.Magnitude[bin], 3) != DbDataHelper.BAD_VELOCITY)
                     {
                         return velMagDir.Magnitude[bin];
                     }
@@ -1091,7 +1091,7 @@ namespace PlotR
             try
             {
                 // Get the data
-                DataHelper.VelocityMagDir velMagDir = DataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, true, false);
+                DbDataHelper.VelocityMagDir velMagDir = DbDataHelper.CreateVelocityVectors(reader, _backupBtEast, _backupBtNorth, true, false);
 
                 // Store the backup value
                 if (velMagDir.IsBtVelGood)
@@ -1102,7 +1102,7 @@ namespace PlotR
 
                 if (bin < velMagDir.Magnitude.Length)
                 {
-                    if (Math.Round(velMagDir.DirectionYNorth[bin], 3) != DataHelper.BAD_VELOCITY)
+                    if (Math.Round(velMagDir.DirectionYNorth[bin], 3) != DbDataHelper.BAD_VELOCITY)
                     {
                         return velMagDir.DirectionYNorth[bin];
                     }

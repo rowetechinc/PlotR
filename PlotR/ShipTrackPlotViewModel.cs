@@ -28,7 +28,7 @@ namespace PlotR
     class ShipTrackPlotViewModel : PlotViewModel
     {
 
-        #region Class
+        #region Class and Enum
 
         /// <summary>
         /// All the different map layers.
@@ -103,9 +103,14 @@ namespace PlotR
             public string LatLon { get; set; }
 
             /// <summary>
+            /// Heading value.
+            /// </summary>
+            public double Heading { get; set; }
+
+            /// <summary>
             /// Water Velocity magnitude and direction.
             /// </summary>
-            public DataHelper.VelocityMagDir VelMagDir { get; set; }
+            public DbDataHelper.VelocityMagDir VelMagDir { get; set; }
 
             /// <summary>
             /// Average Range.
@@ -122,6 +127,7 @@ namespace PlotR
                 LatLon = "";
                 VelMagDir = null;
                 AvgRange = 0.0;
+                Heading = 0.0;
             }
 
             /// <summary>
@@ -460,7 +466,49 @@ namespace PlotR
         }
 
 
-        
+
+
+        #endregion
+
+        #region Last Marker
+
+        /// <summary>
+        /// Is the last marker an ellipse or triangle.
+        /// </summary>
+        private bool _IsLastMarkerEllipse;
+        /// <summary>
+        /// Is the last marker an ellipse or triangle.
+        /// </summary>
+        public bool IsLastMarkerEllipse
+        {
+            get { return _IsLastMarkerEllipse; }
+            set
+            {
+                _IsLastMarkerEllipse = value;
+                NotifyOfPropertyChange(() => IsLastMarkerEllipse);
+
+                ReplotData();
+            }
+        }
+
+        /// <summary>
+        /// Last marker scale.
+        /// </summary>
+        private double _LastMarkerScale;
+        /// <summary>
+        /// Last marker scale.
+        /// </summary>
+        public double LastMarkerScale
+        {
+            get { return _LastMarkerScale; }
+            set
+            {
+                _LastMarkerScale = value;
+                NotifyOfPropertyChange(() => LastMarkerScale);
+
+                ReplotData();
+            }
+        }
 
         #endregion
 
@@ -518,15 +566,19 @@ namespace PlotR
             _IsPlotWaterLine = true;
             _IsMarkBadBelowBottom = true;
             _IsUseGpsSpeedBackup = true;
+            _IsLastMarkerEllipse = false;
             _MagScale = 75;
             _MinValue = 0.0;
             _MaxValue = 2.0;
+            _LastMarkerScale = 10.0;
             NotifyOfPropertyChange(() => MagScale);
             NotifyOfPropertyChange(() => MinValue);
             NotifyOfPropertyChange(() => MaxValue);
             NotifyOfPropertyChange(() => IsPlotWaterLine);
             NotifyOfPropertyChange(() => IsMarkBadBelowBottom);
             NotifyOfPropertyChange(() => IsUseGpsSpeedBackup);
+            NotifyOfPropertyChange(() => LastMarkerScale);
+            NotifyOfPropertyChange(() => IsLastMarkerEllipse);
 
             ColorMapCanvas = ColorHM.GetColorMapLegend(_MinValue, _MaxValue);       // Set the color map canvas
 
@@ -790,8 +842,8 @@ namespace PlotR
         private List<ShipTrackData> QueryDataFromDb(SQLiteConnection cnn, string query, double magScale, int minIndex = 0, int maxIndex = 0)
         {
             // Init list
-            double backupBtEast = DataHelper.BAD_VELOCITY;
-            double backupBtNorth = DataHelper.BAD_VELOCITY;
+            double backupBtEast = DbDataHelper.BAD_VELOCITY;
+            double backupBtNorth = DbDataHelper.BAD_VELOCITY;
 
             // Init the new series data
             List<ShipTrackData> stDataList = new List<ShipTrackData>();
@@ -824,8 +876,12 @@ namespace PlotR
                     // Plot the lat/lon
                     stData.LatLon = reader["Position"].ToString();
 
+                    // Heading
+                    DbDataHelper.HPR hpr = DbDataHelper.GetHPR(reader);
+                    stData.Heading = hpr.Heading;
+
                     //// Get the range bin
-                    //int rangeBin = DataHelper.GetRangeBin(reader);
+                    //int rangeBin = DbDataHelper.GetRangeBin(reader);
 
                     //// Get the magnitude data
                     //string jsonEarth = reader["EarthVelocityDS"].ToString();
@@ -835,8 +891,8 @@ namespace PlotR
                     //    JObject ensEarth = JObject.Parse(jsonEarth);
 
                     //    // Average the data
-                    //    avgMag = DataHelper.GetAvgMag(ensEarth, IsMarkBadBelowBottom, rangeBin, DataHelper.BAD_VELOCITY);
-                    //    avgDir = DataHelper.GetAvgDir(ensEarth, IsMarkBadBelowBottom, rangeBin, DataHelper.BAD_VELOCITY);
+                    //    avgMag = DbDataHelper.GetAvgMag(ensEarth, IsMarkBadBelowBottom, rangeBin, DbDataHelper.BAD_VELOCITY);
+                    //    avgDir = DbDataHelper.GetAvgDir(ensEarth, IsMarkBadBelowBottom, rangeBin, DbDataHelper.BAD_VELOCITY);
 
                     //    //Debug.WriteLine(string.Format("Avg Dir: {0} Avg Mag: {1}", avgDir, avgMag));
                     //}
@@ -844,7 +900,7 @@ namespace PlotR
                     if (IsUseGpsSpeedBackup)
                     {
                         // Get the GPS data from the database
-                        DataHelper.GpsData gpsData = DataHelper.GetGpsData(reader);
+                        DbDataHelper.GpsData gpsData = DbDataHelper.GetGpsData(reader);
 
                         // Check for a backup value for BT East and North speed from the GPS if a Bottom Track value is never found
                         if (Math.Round(backupBtEast, 4) == BAD_VELOCITY && gpsData.IsBackShipSpeedGood)
@@ -855,10 +911,10 @@ namespace PlotR
                     }
 
                     // Get the velocity
-                    stData.VelMagDir = DataHelper.CreateVelocityVectors(reader, backupBtEast, backupBtNorth, true, true);
+                    stData.VelMagDir = DbDataHelper.CreateVelocityVectors(reader, backupBtEast, backupBtNorth, true, true);
 
                     // Get the average range
-                    stData.AvgRange = DataHelper.GetAverageRange(reader);
+                    stData.AvgRange = DbDataHelper.GetAverageRange(reader);
 
                     // Store the backup value
                     if (stData.VelMagDir.IsBtVelGood)
@@ -925,6 +981,9 @@ namespace PlotR
             //LatLon prevLatLon = new LatLon { Latitude = 0.0, Longitude = 0.0, IsGood = false };
             IList<PointLatLng> points = new List<PointLatLng>();
 
+            // Last point
+            ShipTrackData lastGoodShipTrack = null;
+
             foreach (ShipTrackData stData in stDataList)
             {
                 avgMag = stData.VelMagDir.AvgMagnitude;
@@ -956,7 +1015,7 @@ namespace PlotR
                             Y2 = -((Math.Abs(avgMag) * MagScale) * Math.Sin(angle)),        // Flip the sign
                             StrokeThickness = 3,
                             Stroke = brush,
-                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0")),
+                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4} Heading: {5}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0"), stData.Heading.ToString("0.0")),
                             Name = string.Format("Line_{0}", stData.EnsNum)
                         };
                         marker.ZIndex = (int)MapLayers.Quiver;
@@ -969,7 +1028,7 @@ namespace PlotR
                             Height = 20 * MagScale,
                             Fill = brush,
                             Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
-                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0")),
+                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4} Heading: {5}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0"), stData.Heading.ToString("0.0")),
                             Name = string.Format("Rect_Vel_{0}", stData.EnsNum)
                         };
                         marker.ZIndex = (int)MapLayers.Velocity_Rectangle;
@@ -985,35 +1044,21 @@ namespace PlotR
                             Height = 20 * MagScale,
                             Fill = brush,
                             Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Transparent),
-                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0")),
+                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4} Heading: {5}", stData.EnsNum, stData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), stData.AvgRange.ToString("0.0"), stData.Heading.ToString("0.0")),
                             Name = string.Format("Rect_Range_{0}", stData.EnsNum)
                         };
                         marker.ZIndex = (int)MapLayers.Range_Rectangle;
                     }
+
+                    // Record the last point to get a special marker
+                    lastGoodShipTrack = stData;
 
                     // Add the marker to the list
                     Markers.Add(marker);
                 }
             }
 
-            //// Add a marker for the last point to know which direction it traveled
-            //ShipTrackData lastStData = stDataList.Last();
-            //LatLon lastLatLon = lastStData.GetLatLon();
-            //if (lastLatLon.IsGood)
-            //{
-            //    GMapMarker lastMarker = new GMapMarker(new GMap.NET.PointLatLng(lastLatLon.Latitude, lastLatLon.Longitude));
-            //    lastMarker.Shape = new Ellipse
-            //    {
-            //        Width = 2 * MagScale,
-            //        Height = 2 * MagScale,
-            //        Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Yellow),
-            //        Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red),
-            //        ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4}", lastStData.EnsNum, lastStData.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), lastStData.AvgRange.ToString("0.0"))
-            //    };
-            //    lastMarker.ZIndex = (int)MapLayers.Last_Point;
 
-            //    Markers.Add(lastMarker);
-            //}
 
             // Plot the path that we taken
             GMapRoute route = new GMapRoute(points);
@@ -1022,6 +1067,54 @@ namespace PlotR
             route.Shape = new System.Windows.Shapes.Path() { StrokeThickness = 3, Stroke = routeBrush, Fill = routeBrush };
             route.ZIndex = (int)MapLayers.Ship_Track_Line;
             Markers.Add(route);
+
+            // Add a marker for the last point to know which direction it traveled
+            if (lastGoodShipTrack != null)
+            {
+                LatLon lastLatLon = lastGoodShipTrack.GetLatLon();
+
+                if (lastLatLon.IsGood)
+                {
+                    GMapMarker lastMarker = new GMapMarker(new GMap.NET.PointLatLng(lastLatLon.Latitude, lastLatLon.Longitude));
+                    if (IsLastMarkerEllipse)
+                    {
+                        lastMarker.Shape = new Ellipse
+                        {
+                            //Points = trianglePts,
+                            RenderTransform = new System.Windows.Media.TranslateTransform(-((1 * LastMarkerScale) / 2), -((1 * LastMarkerScale) / 2)),
+                            Width = 1 * LastMarkerScale,
+                            Height = 1 * LastMarkerScale,
+                            Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Yellow),
+                            Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red),
+                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4} Heading: {5}", lastGoodShipTrack.EnsNum, lastGoodShipTrack.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), lastGoodShipTrack.AvgRange.ToString("0.0"), lastGoodShipTrack.Heading.ToString("0.0"))
+                        };
+                    }
+                    else
+                    {
+                        System.Windows.Media.PointCollection trianglePts = new System.Windows.Media.PointCollection();
+                        //trianglePts.Add(new Point(0.0, 1.0 * LastMarkerScale));
+                        //trianglePts.Add(new Point(0.0, -1.0 * LastMarkerScale));
+                        //trianglePts.Add(new Point(-1.0 * LastMarkerScale, 0.0));
+                        trianglePts.Add(new Point(-1.0 * LastMarkerScale, 0.0));
+                        trianglePts.Add(new Point(1.0 * LastMarkerScale, 0.0));
+                        trianglePts.Add(new Point(0.0, -1.0 * LastMarkerScale));
+                        lastMarker.Shape = new Polygon
+                        {
+                            Points = trianglePts,
+                            RenderTransform = new System.Windows.Media.RotateTransform(lastGoodShipTrack.Heading),
+                            Fill = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Yellow),
+                            Stroke = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Red),
+                            ToolTip = string.Format("[{0}] [{1}] Mag: {2} Dir: {3} Range: {4} Heading: {5}", lastGoodShipTrack.EnsNum, lastGoodShipTrack.DateTime, avgMag.ToString("0.0"), avgDir.ToString("0.0"), lastGoodShipTrack.AvgRange.ToString("0.0"), lastGoodShipTrack.Heading.ToString("0.0"))
+                        };
+                    }
+
+                    // Set the zIndex so we can filter the layers
+                    lastMarker.ZIndex = (int)MapLayers.Last_Point;
+
+                    // Add the last point to the end
+                    Markers.Add(lastMarker);
+                }
+            }
 
             // Set the center position
             Position = GetCenterPoint(Markers);

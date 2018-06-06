@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace PlotR
 {
-    class DataHelper
+    class DbDataHelper
     {
         /// <summary>
         /// Bad velocity value.
@@ -126,6 +126,9 @@ namespace PlotR
             }
         }
 
+        /// <summary>
+        /// GPS data.
+        /// </summary>
         public class GpsData
         {
             /// <summary>
@@ -198,6 +201,26 @@ namespace PlotR
             }
         }
 
+        /// <summary>
+        /// Heading, Pitch and Roll values.
+        /// </summary>
+        public struct HPR
+        {
+            /// <summary>
+            /// Heading.
+            /// </summary>
+            public double Heading { get; set; }
+
+            /// <summary>
+            /// Pitch.
+            /// </summary>
+            public double Pitch { get; set; }
+
+            /// <summary>
+            /// Roll.
+            /// </summary>
+            public double Roll { get; set; }
+        }
 
         #endregion
 
@@ -412,6 +435,64 @@ namespace PlotR
             }
 
             return dir;
+        }
+
+        #endregion
+
+        #region Heading Pitch and Roll
+
+        /// <summary>
+        /// Get the heading, pitch and roll value.
+        /// </summary>
+        /// <param name="reader">Reader of the database.</param>
+        /// <returns>Heading, pitch and roll value.</returns>
+        public static HPR GetHPR(DbDataReader reader)
+        {
+            string jsonAncillary = reader["AncillaryDS"].ToString();
+            string jsonBt = reader["BottomTrackDS"].ToString();
+
+            // Verify we have all the data
+            if (string.IsNullOrEmpty(jsonAncillary) || string.IsNullOrEmpty(jsonBt) )
+            {
+                // No values found
+                return new HPR()
+                {
+                    Heading = 0.0,
+                    Pitch = 0.0,
+                    Roll = 0.0
+                };
+            }
+
+            // Convert to JSON objects
+            JObject ancData = JObject.Parse(jsonAncillary);
+            JObject btData = JObject.Parse(jsonBt);
+
+            if (ancData != null && ancData.HasValues)
+            {
+                HPR hpr = new HPR();
+                hpr.Heading = ancData["Heading"].ToObject<double>();
+                hpr.Pitch = ancData["Pitch"].ToObject<double>();
+                hpr.Roll = ancData["Roll"].ToObject<double>();
+
+                return hpr;
+            }
+            else if(btData != null && btData.HasValues)
+            {
+                HPR hpr = new HPR();
+                hpr.Heading = btData["Heading"].ToObject<double>();
+                hpr.Pitch = btData["Pitch"].ToObject<double>();
+                hpr.Roll = btData["Roll"].ToObject<double>();
+
+                return hpr;
+            }
+
+            // No values found
+            return new HPR()
+            {
+                Heading = 0.0,
+                Pitch = 0.0,
+                Roll = 0.0
+            };
         }
 
         #endregion
@@ -657,7 +738,7 @@ namespace PlotR
         {
             // Get the NMEA data
             string jsonNmea = reader["NmeaDS"].ToString();
-            DataHelper.GpsData gpsData = null;
+            DbDataHelper.GpsData gpsData = null;
             if (!string.IsNullOrEmpty(jsonNmea))
             {
                 // Convert to a JSON object
@@ -666,7 +747,7 @@ namespace PlotR
 
                 if (nmeaStrings != null && nmeaStrings.Length > 0)
                 {
-                    gpsData = DataHelper.DecodeNmea(nmeaStrings);
+                    gpsData = DbDataHelper.DecodeNmea(nmeaStrings);
                 }
             }
 
