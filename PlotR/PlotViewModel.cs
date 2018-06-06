@@ -10,6 +10,7 @@ using System.Linq;
 using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Input;
 
 namespace PlotR
@@ -469,11 +470,20 @@ namespace PlotR
             _firstLoad = true;
 
             // Clear the current list and get the new file list from the project
-            ProjectFileList.Clear();
+            Application.Current.Dispatcher.Invoke((Action)delegate
+            {
+                ProjectFileList.Clear();
+            });
+
             GetFileList(fileName);
 
             // Clear the current list and get the new subsystem configurations list from the project
-            SubsystemConfigList.Clear();
+            Application.Current.Dispatcher.Invoke((Action)delegate
+            {
+                SubsystemConfigList.Clear();
+            });
+
+
             GetSubsystemConfigList(fileName);
         }
 
