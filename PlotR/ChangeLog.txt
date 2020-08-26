@@ -1,0 +1,5 @@
+﻿PlotR Change Log
+
+v1.0 Beta
+ - Initial Release
+ - Beta Version

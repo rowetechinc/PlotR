@@ -1253,7 +1253,7 @@ namespace PlotR
                     int numBins = ens["NumElements"].ToObject<int>();
 
                     // Get the velocity vector magntidue from the JSON object and add it to the array
-                    double data = ens["Voltage"].ToObject<double>();
+                    double data = ens["InputVoltage"].ToObject<double>();
 
                     return data;
                 }

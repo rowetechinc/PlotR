@@ -618,7 +618,11 @@ namespace PlotR
                         // Add the data to the array
                         for (int x = 0; x < data.Length; x++)
                         {
-                            result.ProfileData[ensIndex, x] = data[x];
+                            // Verify if the number of bins has changed
+                            if (x < result.ProfileData.GetLength(1))
+                            {
+                                result.ProfileData[ensIndex, x] = data[x];
+                            }
                         }
 
                         ensIndex++;
